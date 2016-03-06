@@ -222,6 +222,9 @@ THE SOFTWARE.
 #define MPU6050_DLPF_BW_10          0x05
 #define MPU6050_DLPF_BW_5           0x06
 
+#define MPU6050_GCONFIG_XG_ST_BIT       7
+#define MPU6050_GCONFIG_YG_ST_BIT       6
+#define MPU6050_GCONFIG_ZG_ST_BIT       5
 #define MPU6050_GCONFIG_FS_SEL_BIT      4
 #define MPU6050_GCONFIG_FS_SEL_LENGTH   2
 
@@ -456,6 +459,12 @@ class MPU6050 {
         void setDLPFMode(uint8_t bandwidth);
 
         // GYRO_CONFIG register
+        bool getGyroXSelfTest();
+        void setGyroXSelfTest(bool enabled);
+        bool getGyroYSelfTest();
+        void setGyroYSelfTest(bool enabled);
+        bool getGyroZSelfTest();
+        void setGyroZSelfTest(bool enabled);
         uint8_t getFullScaleGyroRange();
         void setFullScaleGyroRange(uint8_t range);
 

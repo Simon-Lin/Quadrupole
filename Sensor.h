@@ -3,34 +3,49 @@
 
 #include "Vector3D.h"
 #include "Drivers/MPU6050.h"
-#include "Drivers/BMP080.h"
-#include <Vector>
+#include "Drivers/BMP085.h"
+#include <vector>
 
-class Sensor() {
+class Sensor {
  public:
-  Sensor(double update_rate, double sampling_rate); //Initialize sensor
+  Sensor(float sampling_rate);
   ~Sensor();
 
+  bool initialize();
+
   //Obtain instaneous and integrated results (depends on update time)
-  bool getMotionData (Vector3D &accel, Vector3D &speed, Vector3D &angular_speed, Vector3D &normal_vector, Vector3D &front_vector);
-  
+  void getMotionData (Vector3D &accel_t, Vector3D &speed_t, Vector3D &angular_speed_t, Vector3D &normal_vector_t);
   //Obtain instaneous sensor data
-  bool getAccel (Vector3D &accel);
-  bool getGyro (Vector3D &angular_speed);
-  double getPressure ();
-  double GetTemp ();
+  void getAccel (Vector3D &accel);
+  void getGyro (Vector3D &angular_speed);
+  float getPressure ();
+  float getAltitude ();
+  float GetTemp ();
   
  private:
-  std::vector<Vector3D> accel_buffer;
-  std::vector<Vector3D> angular_buffer;
-  std::vector<double>   measure_time;
+  //in miliseconds
+  float sampling_time;
+
+  //LSB normalization const
+  float LSB_accel;
+  float LSB_gyro;
   
+  //measurement data
+  Vector3D accel;
+  Vector3D accel_0;
+  Vector3D gyro;
+  Vector3D gyro_0;
+  float    measure_time;
+  float    measure_time_0;
+  Vector3D speed;
+  Vector3D normal_vector;
+
+  //Sensors
   MPU6050 IMU;
-  BMP080  TPU;
+  BMP085  TPU;
 
   void calibrate();
-  void integrate_accel();
-  void integrate_gyro();
+  void IMU_SelfTest();
 };
 
 

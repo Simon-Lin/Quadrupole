@@ -220,6 +220,33 @@ void MPU6050::setDLPFMode(uint8_t mode) {
 
 // GYRO_CONFIG register
 
+bool MPU6050::getGyroXSelfTest() {
+    I2Cdev::readBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_XG_ST_BIT, buffer);
+    return buffer[0];  
+}
+
+void MPU6050::setGyroXSelfTest(bool enabled) {
+    I2Cdev::writeBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_XG_ST_BIT, enabled);
+}
+
+bool MPU6050::getGyroYSelfTest() {
+    I2Cdev::readBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_YG_ST_BIT, buffer);
+    return buffer[0];
+}
+
+void MPU6050::setGyroYSelfTest(bool enabled) {
+    I2Cdev::writeBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_YG_ST_BIT, enabled);
+}
+
+bool MPU6050::getGyroZSelfTest() {
+    I2Cdev::readBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_ZG_ST_BIT, buffer);
+    return buffer[0];
+}
+
+void MPU6050::setGyroZSelfTest(bool enabled) {
+    I2Cdev::writeBit(devAddr, MPU6050_RA_GYRO_CONFIG, MPU6050_GCONFIG_ZG_ST_BIT, enabled);
+}
+
 /** Get full-scale gyroscope range.
  * The FS_SEL parameter allows setting the full-scale range of the gyro sensors,
  * as described in the table below.
