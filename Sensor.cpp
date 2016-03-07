@@ -25,16 +25,14 @@ bool Sensor::initialize () {
     std::cout << "IMU connection test failed! Aborting initialization...\n";
     return 0;
   }
-  //  IMU_SelfTest();
-  
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
   IMU.setDLPFMode(MPU6050_DLPF_BW_188);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
-  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
-  LSB_accel = 8192;
-  LSB_gyro  = 65.5; 
+  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+  LSB_accel = 16384;
+  LSB_gyro  = 65.5;
   
   IMU.setSleepEnabled(false);
 
@@ -54,9 +52,244 @@ bool Sensor::initialize () {
   return 1;
 }
 
-void Sensor::calibrate() {
+void Sensor::IMU_Calibrate() {
+  std::cout << "you are going to perform an HARD calibration.\n"
+            << "This is achieved by resetting the offsets and gains in IMU chip.\n";
+  std::cout << "Proceed (y/n)? ";
+  char input;
+  do {
+    std::cin >> input;
+  } while (input != 'Y' && input != 'y' && input != 'n' && input != 'N');
+  if (input == 'n' || input == 'N') return;
+  std::cout << "Please place the IMU with z axis pointing directly down. Ready (y)? ";
+  do {
+    std::cin >> input;
+  } while (input != 'Y' && input != 'y');
+  std::cout << "Performing calibration. Do not move the device...\n";
+  
+  //initial guess of offset
+  Vector3D accel_off(0,0,0), gyro_off(0,0,0);
+  IMU.setXAccelOffset((int16_t)accel_off.x);
+  IMU.setYAccelOffset((int16_t)accel_off.y);
+  IMU.setZAccelOffset((int16_t)accel_off.z);
+  IMU.setXGyroOffset((int16_t)gyro_off.x);
+  IMU.setYGyroOffset((int16_t)gyro_off.y);
+  IMU.setZGyroOffset((int16_t)gyro_off.z);
+  bcm2835_delay(100);
 
+  Vector3D accel_cal_0, gyro_cal_0, accel_cal_1, gyro_cal_1;
+  Vector3D accel_fix(1024, 1024, 1024), gyro_fix(256, 256, 256);
+  
+  //obtain initial offset value
+  for (int j = 0; j < 100; j++) {
+    int16_t ax, ay, az, gx, gy, gz;
+    IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    accel_cal_0 = accel_cal_0 + Vector3D(ax, ay, az);
+    gyro_cal_0 = gyro_cal_0 + Vector3D(gx, gy, gz);
+    bcm2835_delay(10);
+  }
+  accel_cal_0.scale(0.01);
+  gyro_cal_0.scale(0.01);
+
+  
+  for (int i = 0; i < 30; i++) {
+    
+    //obtain sensor value
+    for (int j = 0; j < 500; j++) {
+      int16_t ax, ay, az, gx, gy, gz;
+      IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+      accel_cal_1 = accel_cal_1 + Vector3D(ax, ay, az);
+      gyro_cal_1 = gyro_cal_1 + Vector3D(gx, gy, gz);
+      bcm2835_delay(10);
+    }
+    accel_cal_1.scale(0.002);
+    gyro_cal_1.scale(0.002);
+    
+    //fix the offset value
+    if (signbit(gyro_cal_1.x) != signbit(gyro_cal_0.x)) {
+      if (abs(gyro_cal_1.x) < abs(gyro_cal_0.x)) {
+	if (gyro_cal_1.x > 0) {
+	  gyro_off.x -= gyro_fix.x;
+	} else {
+	  gyro_off.x += gyro_fix.x;
+	} 
+	gyro_cal_0.x = gyro_cal_1.x;
+      } else {
+	if (gyro_cal_0.x > 0) {
+	  gyro_off.x += gyro_fix.x;
+	} else {
+	  gyro_off.x -= gyro_fix.x;
+	}
+      }
+      gyro_fix.x /= 2;
+    } else {
+      if (gyro_cal_1.x > 0) {
+	gyro_off.x -= gyro_fix.x;
+      } else {
+	gyro_off.x += gyro_fix.x;
+      }
+      gyro_cal_0.x = gyro_cal_1.x;
+    }
+    
+    if (signbit(gyro_cal_1.y) != signbit(gyro_cal_0.y)) {
+      if (abs(gyro_cal_1.y) < abs(gyro_cal_0.y)) {
+	if (gyro_cal_1.y > 0) {
+	  gyro_off.y -= gyro_fix.y;
+	} else {
+	  gyro_off.y += gyro_fix.y;
+	}
+	gyro_cal_0.y = gyro_cal_1.y;
+      } else {
+	if (gyro_cal_0.y > 0) {
+	  gyro_off.y += gyro_fix.y;
+	} else {
+	  gyro_off.y -= gyro_fix.y;
+	}
+      }
+      gyro_fix.y /= 2;
+    } else {
+      if (gyro_cal_1.y > 0) {
+	gyro_off.y -= gyro_fix.y;
+      } else {
+	gyro_off.y += gyro_fix.y;
+      }
+      gyro_cal_0.y = gyro_cal_1.y;
+    }
+    
+    if (signbit(gyro_cal_1.z) != signbit(gyro_cal_0.z)) {
+      if (abs(gyro_cal_1.z) < abs(gyro_cal_0.z)) {
+	if (gyro_cal_1.z > 0) {
+	  gyro_off.z -= gyro_fix.z;
+	} else {
+	  gyro_off.z += gyro_fix.z;
+	}
+	gyro_cal_0.z = gyro_cal_1.z;
+      } else {
+	if (gyro_cal_0.z > 0) {
+	  gyro_off.z += gyro_fix.z;
+	} else {
+	  gyro_off.z -= gyro_fix.z;
+	}
+      }
+      gyro_fix.z /= 2;
+    } else {
+      if (gyro_cal_1.z > 0) {
+	gyro_off.z -= gyro_fix.z;
+      } else {
+	gyro_off.z += gyro_fix.z;
+      }
+      gyro_cal_0.z = gyro_cal_1.z;
+    }
+    
+    if (signbit(accel_cal_1.x) != signbit(accel_cal_0.x)) {
+      if (abs(accel_cal_1.x) < abs(accel_cal_0.x)) {
+	if (accel_cal_1.x > 0) {
+	  accel_off.x -= accel_fix.x;
+	} else {
+	  accel_off.x += accel_fix.x;
+	}
+	accel_cal_0.x = accel_cal_1.x;
+      } else {
+	if (accel_cal_0.x > 0) {
+	  accel_off.x += accel_fix.x;
+	} else {
+	  accel_off.x -= accel_fix.x;
+	}
+      }
+      accel_fix.x /= 2;
+    } else {
+      if (accel_cal_1.x > 0) {
+	accel_off.x -= accel_fix.x;
+      } else {
+	accel_off.x += accel_fix.x;
+      }
+      accel_cal_0.x = accel_cal_1.x;
+    }
+    
+    if (signbit(accel_cal_1.y) != signbit(accel_cal_0.y)) {
+      if (abs(accel_cal_1.y) < abs(accel_cal_0.y)) {
+	if (accel_cal_1.y > 0) {
+	  accel_off.y -= accel_fix.y;
+	} else {
+	  accel_off.y += accel_fix.y;
+	}
+	accel_cal_0.y = accel_cal_1.y;
+      } else {
+	if (accel_cal_0.y > 0) {
+	  accel_off.y += accel_fix.y;
+	} else {
+	  accel_off.y -= accel_fix.y;
+	}
+      }
+      accel_fix.y /= 2;
+    } else {
+      if (accel_cal_1.y > 0) {
+	accel_off.y -= accel_fix.y;
+      } else {
+	accel_off.y += accel_fix.y;
+      }
+      accel_cal_0.y = accel_cal_1.y;
+    }
+    
+    if (signbit(LSB_accel+accel_cal_1.z) != signbit(LSB_accel+accel_cal_0.z)) {
+      if (abs(LSB_accel+accel_cal_1.z) < abs(LSB_accel+accel_cal_0.z)) {
+	if (LSB_accel+accel_cal_1.z > 0) {
+	  accel_off.z -= accel_fix.z;
+	} else {
+	  accel_off.z += accel_fix.z;
+	}
+	accel_cal_0.z = accel_cal_1.z;
+      } else {
+	if (LSB_accel+accel_cal_0.z > 0) {
+	  accel_off.z += accel_fix.z;
+	} else {
+	  accel_off.z -= accel_fix.z;
+	}
+      }
+      accel_fix.z /= 2;
+    } else {
+      if (LSB_accel+accel_cal_1.z > 0) {
+	accel_off.z -= accel_fix.z;
+      } else {
+	accel_off.z += accel_fix.z;
+      }
+      accel_cal_0.z = accel_cal_1.z;
+    }
+
+    //Write new offsets
+    IMU.setXAccelOffset((int16_t)round(accel_off.x));
+    IMU.setYAccelOffset((int16_t)round(accel_off.y));
+    IMU.setZAccelOffset((int16_t)round(accel_off.z));
+    IMU.setXGyroOffset((int16_t)round(gyro_off.x));
+    IMU.setYGyroOffset((int16_t)round(gyro_off.y));
+    IMU.setZGyroOffset((int16_t)round(gyro_off.z));
+    bcm2835_delay(100);
+    std::cout << ">" << std::flush;
+  }
+
+  IMU_GetOffsets();
+  std::cout << "\ncalibration complete.\n";
 }
+
+void Sensor::IMU_GetOffsets () {
+  //  std::cout << "Obtaining offsets and gains data from IMU:\n";
+  float ax_off, ay_off, az_off, gx_off, gy_off, gz_off, x_gain, y_gain, z_gain;
+
+  ax_off = IMU.getXAccelOffset();
+  ay_off = IMU.getYAccelOffset();
+  az_off = IMU.getZAccelOffset();
+  gx_off = IMU.getXGyroOffset(); 
+  gy_off = IMU.getYGyroOffset();
+  gz_off = IMU.getZGyroOffset();
+  x_gain = IMU.getXFineGain();
+  y_gain = IMU.getYFineGain();
+  z_gain = IMU.getZFineGain();
+
+  std::cout << "gyroscope offsets (deg/s):   gx: " << gx_off << "   gy: " << gy_off << "   gz: " << gz_off << std::endl;
+  std::cout << "accelerometer offsets (g):   ax: " << ax_off << "   ay: " << ay_off << "   az: " << az_off << std::endl;
+  std::cout << "fine gains:   x:" << x_gain << "   y: " << y_gain << "   z: " << z_gain << std::endl;
+}
+
 
 void Sensor::getMotionData (Vector3D &accel_t, Vector3D &speed_t, Vector3D &angular_speed_t, Vector3D &normal_vector_t) {
   //obtain data from motion sensor
@@ -114,7 +347,7 @@ void Sensor::IMU_SelfTest () {
   //obtain Self Test Values;
   Vector3D gyro_unenabled, gyro_enabled, accel_unenabled, accel_enabled;
   int16_t x, y, z;
-  std::cout << ".";
+  std::cout << "." << std::flush;
   
   for (int i = 0; i < 20; i++) {
     IMU.getRotation(&x, &y, &z);
@@ -129,7 +362,7 @@ void Sensor::IMU_SelfTest () {
   IMU.setGyroYSelfTest(1);
   IMU.setGyroZSelfTest(1);
   bcm2835_delay(500);
-  std::cout << "."; 
+  std::cout << "." << std::flush; 
   for (int i = 0; i < 20; i++) {
     IMU.getRotation(&x, &y, &z);
     gyro_enabled = gyro_enabled + Vector3D(x, y, z);
@@ -144,7 +377,7 @@ void Sensor::IMU_SelfTest () {
   IMU.setAccelYSelfTest(1);
   IMU.setAccelZSelfTest(1);
   bcm2835_delay(500);
-  std::cout << ".";
+  std::cout << "." << std::flush;
   for (int i = 0; i < 20; i++) {
     IMU.getAcceleration(&x, &y, &z);
     accel_enabled = accel_enabled + Vector3D(x, y, z);

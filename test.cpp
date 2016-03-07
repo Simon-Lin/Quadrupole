@@ -7,9 +7,11 @@ int kbhit();
 
 int main() {
   Sensor sensor(10);
-  Vector3D accel, speed, omega, rotation;
   sensor.initialize();
-
+  Vector3D accel, speed, omega, rotation;
+  //  sensor.IMU_Calibrate();
+  //  sensor.IMU_SelfTest();
+   
   while (1) {
     if (kbhit()) break;
 

@@ -15,12 +15,18 @@ class Sensor {
 
   //Obtain instaneous and integrated results (depends on update time)
   void getMotionData (Vector3D &accel_t, Vector3D &speed_t, Vector3D &angular_speed_t, Vector3D &normal_vector_t);
+
   //Obtain instaneous sensor data
   void getAccel (Vector3D &accel);
   void getGyro (Vector3D &angular_speed);
   float getPressure ();
   float getAltitude ();
   float GetTemp ();
+
+  //Calibration
+  void IMU_Calibrate ();
+  void IMU_GetOffsets ();
+  void IMU_SelfTest ();
   
  private:
   //in miliseconds
@@ -43,9 +49,6 @@ class Sensor {
   //Sensors
   MPU6050 IMU;
   BMP085  TPU;
-
-  void calibrate();
-  void IMU_SelfTest();
 };
 
 
