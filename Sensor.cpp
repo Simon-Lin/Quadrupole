@@ -91,7 +91,6 @@ void Sensor::IMU_Calibrate() {
   accel_cal_0.scale(0.01);
   gyro_cal_0.scale(0.01);
 
-  
   for (int i = 0; i < 30; i++) {
     
     //obtain sensor value
@@ -106,155 +105,12 @@ void Sensor::IMU_Calibrate() {
     gyro_cal_1.scale(0.002);
     
     //fix the offset value
-    if (signbit(gyro_cal_1.x) != signbit(gyro_cal_0.x)) {
-      if (abs(gyro_cal_1.x) < abs(gyro_cal_0.x)) {
-	if (gyro_cal_1.x > 0) {
-	  gyro_off.x -= gyro_fix.x;
-	} else {
-	  gyro_off.x += gyro_fix.x;
-	} 
-	gyro_cal_0.x = gyro_cal_1.x;
-      } else {
-	if (gyro_cal_0.x > 0) {
-	  gyro_off.x += gyro_fix.x;
-	} else {
-	  gyro_off.x -= gyro_fix.x;
-	}
-      }
-      gyro_fix.x /= 2;
-    } else {
-      if (gyro_cal_1.x > 0) {
-	gyro_off.x -= gyro_fix.x;
-      } else {
-	gyro_off.x += gyro_fix.x;
-      }
-      gyro_cal_0.x = gyro_cal_1.x;
-    }
-    
-    if (signbit(gyro_cal_1.y) != signbit(gyro_cal_0.y)) {
-      if (abs(gyro_cal_1.y) < abs(gyro_cal_0.y)) {
-	if (gyro_cal_1.y > 0) {
-	  gyro_off.y -= gyro_fix.y;
-	} else {
-	  gyro_off.y += gyro_fix.y;
-	}
-	gyro_cal_0.y = gyro_cal_1.y;
-      } else {
-	if (gyro_cal_0.y > 0) {
-	  gyro_off.y += gyro_fix.y;
-	} else {
-	  gyro_off.y -= gyro_fix.y;
-	}
-      }
-      gyro_fix.y /= 2;
-    } else {
-      if (gyro_cal_1.y > 0) {
-	gyro_off.y -= gyro_fix.y;
-      } else {
-	gyro_off.y += gyro_fix.y;
-      }
-      gyro_cal_0.y = gyro_cal_1.y;
-    }
-    
-    if (signbit(gyro_cal_1.z) != signbit(gyro_cal_0.z)) {
-      if (abs(gyro_cal_1.z) < abs(gyro_cal_0.z)) {
-	if (gyro_cal_1.z > 0) {
-	  gyro_off.z -= gyro_fix.z;
-	} else {
-	  gyro_off.z += gyro_fix.z;
-	}
-	gyro_cal_0.z = gyro_cal_1.z;
-      } else {
-	if (gyro_cal_0.z > 0) {
-	  gyro_off.z += gyro_fix.z;
-	} else {
-	  gyro_off.z -= gyro_fix.z;
-	}
-      }
-      gyro_fix.z /= 2;
-    } else {
-      if (gyro_cal_1.z > 0) {
-	gyro_off.z -= gyro_fix.z;
-      } else {
-	gyro_off.z += gyro_fix.z;
-      }
-      gyro_cal_0.z = gyro_cal_1.z;
-    }
-    
-    if (signbit(accel_cal_1.x) != signbit(accel_cal_0.x)) {
-      if (abs(accel_cal_1.x) < abs(accel_cal_0.x)) {
-	if (accel_cal_1.x > 0) {
-	  accel_off.x -= accel_fix.x;
-	} else {
-	  accel_off.x += accel_fix.x;
-	}
-	accel_cal_0.x = accel_cal_1.x;
-      } else {
-	if (accel_cal_0.x > 0) {
-	  accel_off.x += accel_fix.x;
-	} else {
-	  accel_off.x -= accel_fix.x;
-	}
-      }
-      accel_fix.x /= 2;
-    } else {
-      if (accel_cal_1.x > 0) {
-	accel_off.x -= accel_fix.x;
-      } else {
-	accel_off.x += accel_fix.x;
-      }
-      accel_cal_0.x = accel_cal_1.x;
-    }
-    
-    if (signbit(accel_cal_1.y) != signbit(accel_cal_0.y)) {
-      if (abs(accel_cal_1.y) < abs(accel_cal_0.y)) {
-	if (accel_cal_1.y > 0) {
-	  accel_off.y -= accel_fix.y;
-	} else {
-	  accel_off.y += accel_fix.y;
-	}
-	accel_cal_0.y = accel_cal_1.y;
-      } else {
-	if (accel_cal_0.y > 0) {
-	  accel_off.y += accel_fix.y;
-	} else {
-	  accel_off.y -= accel_fix.y;
-	}
-      }
-      accel_fix.y /= 2;
-    } else {
-      if (accel_cal_1.y > 0) {
-	accel_off.y -= accel_fix.y;
-      } else {
-	accel_off.y += accel_fix.y;
-      }
-      accel_cal_0.y = accel_cal_1.y;
-    }
-    
-    if (signbit(LSB_accel+accel_cal_1.z) != signbit(LSB_accel+accel_cal_0.z)) {
-      if (abs(LSB_accel+accel_cal_1.z) < abs(LSB_accel+accel_cal_0.z)) {
-	if (LSB_accel+accel_cal_1.z > 0) {
-	  accel_off.z -= accel_fix.z;
-	} else {
-	  accel_off.z += accel_fix.z;
-	}
-	accel_cal_0.z = accel_cal_1.z;
-      } else {
-	if (LSB_accel+accel_cal_0.z > 0) {
-	  accel_off.z += accel_fix.z;
-	} else {
-	  accel_off.z -= accel_fix.z;
-	}
-      }
-      accel_fix.z /= 2;
-    } else {
-      if (LSB_accel+accel_cal_1.z > 0) {
-	accel_off.z -= accel_fix.z;
-      } else {
-	accel_off.z += accel_fix.z;
-      }
-      accel_cal_0.z = accel_cal_1.z;
-    }
+    fixOffset (gyro_cal_1.x, gyro_cal_0.x, gyro_off.x, gyro_fix.x);
+    fixOffset (gyro_cal_1.y, gyro_cal_0.y, gyro_off.y, gyro_fix.y);
+    fixOffset (gyro_cal_1.z, gyro_cal_0.z, gyro_off.z, gyro_fix.z);
+    fixOffset (accel_cal_1.x, accel_cal_0.x, accel_off.x, accel_fix.x);
+    fixOffset (accel_cal_1.y, accel_cal_0.y, accel_off.x, accel_fix.y);
+    fixOffset (LSB_accel+accel_cal_1.z, LSB_accel+accel_cal_0.z, accel_off.z, accel_fix.z);
 
     //Write new offsets
     IMU.setXAccelOffset((int16_t)round(accel_off.x));
@@ -406,4 +262,32 @@ void Sensor::IMU_SelfTest () {
   std::cout << "accelerometer error    \tax: " << err_ax << " %     \tay: " << err_ay << " %     \taz: " << err_az << "%\n";
   std::cout << "(Errors accepeable are 14% for both on specification sheet)\n";
   std::cout << "===============================================================================\n\n";
+}
+
+void Sensor::fixOffset (float &cal_1, float &cal_0, float off&, float &fix) {
+  //offset fixing utility used by IMU_calibration method
+  if (signbit(cal_1) != signbit(cal_0)) {
+    if (abs(cal_1) < abs(cal_0)) {
+      if (cal_1 > 0) {
+        off -= fix;
+      } else {
+	    off += fix;
+      } 
+        cal_0 = cal_1;
+      } else {
+        if (cal_0 > 0) {
+          off += fix;
+	    } else {
+	      off -= gfix;
+        }
+      }
+      fix /= 2;
+    } else {
+      if (cal_1 > 0) {
+        off -= fix;
+      } else {
+        off += fix;
+      }
+      cal_0 = cal_1;
+    }
 }
