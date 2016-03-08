@@ -6,18 +6,31 @@
 #include "Drivers/BMP085.h"
 #include <vector>
 
+struct SensorData {
+  //instaneous measurement data
+  Vector3D acceleration, angular_speed;
+  float pressure, temperature, batt_voltage;
+  //integrated data
+  Vector3D speed, position, g_direction;
+};
+
 class Sensor {
  public:
-  Sensor(float sampling_rate);
+  Sensor(SensorData *DATA_ref, float sampling_rate);
   ~Sensor();
 
   bool initialize();
 
-  //Obtain instaneous and integrated results (depends on update time)
-  void getMotionData (Vector3D &accel_t, Vector3D &speed_t, Vector3D &angular_speed_t, Vector3D &normal_vector_t);
-
+  //Start data collection and related calculation.
+  //Update the results peridocally according to sampling rate.
+  //Should only be called within an OpenMP section.
+  void start(bool &terminate);
+  
+  //Obtain instaneous and integrated results
+  void getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction);
+ 
   //Obtain instaneous sensor data
-  void getAccel (Vector3D &accel);
+  void getAccel (Vector3D &acceleration);
   void getGyro (Vector3D &angular_speed);
   float getPressure ();
   float getAltitude ();
@@ -29,6 +42,9 @@ class Sensor {
   void IMU_SelfTest ();
   
  private:
+  //interface data
+  SensorData *DATA;
+  
   //in miliseconds
   float sampling_time;
 
@@ -41,17 +57,19 @@ class Sensor {
   Vector3D accel_0;
   Vector3D gyro;
   Vector3D gyro_0;
-  float    measure_time;
-  float    measure_time_0;
-  Vector3D speed;
-  Vector3D normal_vector;
+  float    time;
+  float    time_0;
+  Vector3D velo;
+  Vector3D velo_0;
+  Vector3D pos;
+  Vector3D g_dir;
 
   //Sensors
   MPU6050 IMU;
   BMP085  TPU;
   
   //utility
-  void fixOffset(float &cal_1, float &cal_0, float off&, float &fix);
+  void fixOffset(float cal_1, float cal_0, float off, float fix);
 };
 
 

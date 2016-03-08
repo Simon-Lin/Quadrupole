@@ -3,13 +3,9 @@
 #include <math.h>
 
 //default initializer
-Sensor::Sensor (float sampling_rate) {
-  //set up interval informations
+Sensor::Sensor (SensorData *DATA_ref, float sampling_rate) {
+  DATA = DATA_ref;
   sampling_time = 1000/sampling_rate;
-
-  //set integrated data initial value
-  speed.setValue (0, 0, 0);
-  normal_vector.setValue (0, 0, 1);
 }
 
 Sensor::~Sensor() {
@@ -47,9 +43,23 @@ bool Sensor::initialize () {
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
   accel_0.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   gyro_0.setValue(gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro);
-  measure_time_0 = bcm2835_st_read() / 1000.0;
+  velo_0.setValue(0, 0, 0);
+  pos.setValue(0, 0, 0);
+  g_dir.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
+  time_0 = bcm2835_st_read() / 1000.0;
   
   return 1;
+}
+
+void Sensor::start(bool &terminate) {
+  while (!terminate) {
+    #pragma omp critical (I2C_Access)
+    {
+    getMotionData (DATA->acceleration, DATA->speed, DATA->position, DATA->angular_speed, DATA->g_direction);
+    }
+    
+    bcm2835_delay(sampling_time);
+  }
 }
 
 void Sensor::IMU_Calibrate() {
@@ -147,36 +157,37 @@ void Sensor::IMU_GetOffsets () {
 }
 
 
-void Sensor::getMotionData (Vector3D &accel_t, Vector3D &speed_t, Vector3D &angular_speed_t, Vector3D &normal_vector_t) {
+void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction) {
   //obtain data from motion sensor
   int16_t ax, ay, az, gx, gy, gz;
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
-  measure_time = bcm2835_st_read() / 1000.0;
+  time = bcm2835_st_read() / 1000.0;
   accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   gyro.setValue(gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro);
-  float dt = (measure_time - measure_time_0) / 1000.0;
+  float dt = (time - time_0) / 1000.0;
     
   //numerical integration of acceleration
-  Vector3D dv = accel + accel_0;
-  dv.scale(dt/2.0);
-  speed = speed + dv;
+  Vector3D dv = 0.5 * (accel + accel_0);
+  velo = velo + dv;
+  Vector3D dx = 0.5 * (velo + velo_0);
+  pos = pos + dx;
     
   //numerical integration of angular velocity
-  float dtheta = gyro.norm() * dt * M_PI / 90;
-  normal_vector.rotate (dtheta, gyro);
+  float dtheta = -gyro.norm() * dt * M_PI / 90;
+  g_dir.rotate (dtheta, gyro);
+  g_dir = 0.04 * accel + 0.96 * g_dir;  //apply complementary filter
   
   //initialize next measurement's initial value
   accel_0 = accel;
   gyro_0 = gyro;
-  measure_time_0 = measure_time;
+  time_0 = time;
   
   //set value to output references
-  speed_t = speed;
-  normal_vector_t = normal_vector;
-  accel_t = accel;
-  angular_speed_t = gyro;
-
-  bcm2835_delay(sampling_time);
+  speed = velo;
+  position = pos;
+  g_direction = g_dir;
+  acceleration = accel;
+  angular_speed = gyro;
 }
 
 
@@ -264,7 +275,7 @@ void Sensor::IMU_SelfTest () {
   std::cout << "===============================================================================\n\n";
 }
 
-void Sensor::fixOffset (float &cal_1, float &cal_0, float off&, float &fix) {
+void Sensor::fixOffset (float cal_1, float cal_0, float off, float fix) {
   //offset fixing utility used by IMU_calibration method
   if (signbit(cal_1) != signbit(cal_0)) {
     if (abs(cal_1) < abs(cal_0)) {
@@ -278,7 +289,7 @@ void Sensor::fixOffset (float &cal_1, float &cal_0, float off&, float &fix) {
         if (cal_0 > 0) {
           off += fix;
 	    } else {
-	      off -= gfix;
+	      off -= fix;
         }
       }
       fix /= 2;

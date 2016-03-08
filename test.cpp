@@ -2,30 +2,47 @@
 #include "Sensor.h"
 #include <sys/select.h>
 #include <iostream>
+#include <omp.h>
 
 int kbhit();
+void printdata(SensorData &DATA, bool &terminate);
 
 int main() {
-  Sensor sensor(10);
+  SensorData DATA;
+  Sensor sensor(&DATA, 50);
   sensor.initialize();
-  Vector3D accel, speed, omega, rotation;
+  bool terminate = false;
   //  sensor.IMU_Calibrate();
   //  sensor.IMU_SelfTest();
-   
-  while (1) {
-    if (kbhit()) break;
 
-    sensor.getMotionData(accel, speed, omega, rotation);
-    std::cout << "\naccel: ";
-    accel.print();
-    std::cout << "   speed: ";
-    speed.print();
-    std::cout << "   omega: ";
-    omega.print();
-    std::cout << "   rotation: ";
-    rotation.print();
+  #pragma omp parallel sections
+  {
+    #pragma omp section
+    {
+      std::cout << "thread of printdata: "  << omp_get_thread_num() << std::endl << std::flush;
+      printdata(DATA, terminate);
+    }
+    #pragma omp section
+    {
+      std::cout << "thread of sensor: " <<  omp_get_thread_num() << std::endl << std::flush;
+      sensor.start(terminate);
+    }
   }
   return 0;
+}
+
+void printdata(SensorData &DATA, bool &terminate) {
+  while (!kbhit()) {
+    std::cout << "\naccel: ";
+    DATA.acceleration.print();
+    std::cout << "   omega: ";
+    DATA.angular_speed.print();
+    std::cout << "   g: ";
+    DATA.g_direction.print();
+    
+    bcm2835_delay(100);
+  }
+  terminate = true;
 }
 
 int kbhit()

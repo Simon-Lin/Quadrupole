@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS= -ansi -Wall -O0 -g3
+CFLAGS= -ansi -Wall -O0 -g3 -fopenmp
 LDFLAGS=-l bcm2835 -l m
 OBJ=Sensor.o Vector3D.o
 OBJ_DRIV= ./Drivers/I2Cdev.o ./Drivers/BMP085.o ./Drivers/MPU6050.o ./Drivers/PCA9685.o

@@ -12,7 +12,7 @@ class Vector3D {
   Vector3D operator- ();
   Vector3D operator+ (const Vector3D &t);
   Vector3D operator- (const Vector3D &t);
-  friend Vector3D operator* (const double &a, const Vector3D &t);
+  friend Vector3D operator* (const float &a, const Vector3D &t);
 
   void print();
   
