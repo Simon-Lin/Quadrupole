@@ -69,7 +69,7 @@ class Sensor {
   BMP085  TPU;
   
   //utility
-  void fixOffset(float cal_1, float cal_0, float off, float fix);
+  void fixOffset(float &cal_1, float &cal_0, float &off, float &fix);
 };
 
 

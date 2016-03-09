@@ -53,10 +53,7 @@ bool Sensor::initialize () {
 
 void Sensor::start(bool &terminate) {
   while (!terminate) {
-    #pragma omp critical (I2C_Access)
-    {
     getMotionData (DATA->acceleration, DATA->speed, DATA->position, DATA->angular_speed, DATA->g_direction);
-    }
     
     bcm2835_delay(sampling_time);
   }
@@ -88,7 +85,7 @@ void Sensor::IMU_Calibrate() {
   bcm2835_delay(100);
 
   Vector3D accel_cal_0, gyro_cal_0, accel_cal_1, gyro_cal_1;
-  Vector3D accel_fix(1024, 1024, 1024), gyro_fix(256, 256, 256);
+  Vector3D accel_fix(512, 512, 512), gyro_fix(256, 256, 256);
   
   //obtain initial offset value
   for (int j = 0; j < 100; j++) {
@@ -99,9 +96,10 @@ void Sensor::IMU_Calibrate() {
     bcm2835_delay(10);
   }
   accel_cal_0.scale(0.01);
+  accel_cal_0.z += LSB_accel;
   gyro_cal_0.scale(0.01);
 
-  for (int i = 0; i < 30; i++) {
+  for (int i = 0; i < 20; i++) {
     
     //obtain sensor value
     for (int j = 0; j < 500; j++) {
@@ -119,8 +117,9 @@ void Sensor::IMU_Calibrate() {
     fixOffset (gyro_cal_1.y, gyro_cal_0.y, gyro_off.y, gyro_fix.y);
     fixOffset (gyro_cal_1.z, gyro_cal_0.z, gyro_off.z, gyro_fix.z);
     fixOffset (accel_cal_1.x, accel_cal_0.x, accel_off.x, accel_fix.x);
-    fixOffset (accel_cal_1.y, accel_cal_0.y, accel_off.x, accel_fix.y);
-    fixOffset (LSB_accel+accel_cal_1.z, LSB_accel+accel_cal_0.z, accel_off.z, accel_fix.z);
+    fixOffset (accel_cal_1.y, accel_cal_0.y, accel_off.y, accel_fix.y);
+    accel_cal_1.z += LSB_accel;
+    fixOffset (accel_cal_1.z, accel_cal_0.z, accel_off.z, accel_fix.z);
 
     //Write new offsets
     IMU.setXAccelOffset((int16_t)round(accel_off.x));
@@ -133,6 +132,7 @@ void Sensor::IMU_Calibrate() {
     std::cout << ">" << std::flush;
   }
 
+  std::cout << std::endl;
   IMU_GetOffsets();
   std::cout << "\ncalibration complete.\n";
 }
@@ -160,7 +160,10 @@ void Sensor::IMU_GetOffsets () {
 void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction) {
   //obtain data from motion sensor
   int16_t ax, ay, az, gx, gy, gz;
+
+  #pragma omp critical (I2C_access)
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+  
   time = bcm2835_st_read() / 1000.0;
   accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   gyro.setValue(gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro);
@@ -175,7 +178,8 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   //numerical integration of angular velocity
   float dtheta = -gyro.norm() * dt * M_PI / 90;
   g_dir.rotate (dtheta, gyro);
-  g_dir = 0.04 * accel + 0.96 * g_dir;  //apply complementary filter
+  g_dir = 0.04 / accel.norm() * accel + 0.96 * g_dir;  //apply complementary filter
+  g_dir.normalize();
   
   //initialize next measurement's initial value
   accel_0 = accel;
@@ -275,7 +279,7 @@ void Sensor::IMU_SelfTest () {
   std::cout << "===============================================================================\n\n";
 }
 
-void Sensor::fixOffset (float cal_1, float cal_0, float off, float fix) {
+void Sensor::fixOffset (float &cal_1, float &cal_0, float &off, float &fix) {
   //offset fixing utility used by IMU_calibration method
   if (signbit(cal_1) != signbit(cal_0)) {
     if (abs(cal_1) < abs(cal_0)) {
