@@ -1,16 +1,22 @@
 #include "Vector3D.h"
 #include "Sensor.h"
+#include "Interface.h"
 #include <sys/select.h>
 #include <iostream>
 #include <omp.h>
 
 int kbhit();
-void printdata(SensorData &DATA, bool &terminate);
 
 int main() {
-  SensorData DATA;
-  Sensor sensor(&DATA, 50);
+  SensorData SEN_DATA;
+  Sensor sensor(&SEN_DATA, 50);
   sensor.initialize();
+
+  bcm2835_delay(500);
+  InterfaceData UI_DATA;
+  Interface UI(&UI_DATA);
+  UI.initialize();
+  
   bool terminate = false;
   //  sensor.IMU_Calibrate();
   //  sensor.IMU_SelfTest();
@@ -19,30 +25,22 @@ int main() {
   {
     #pragma omp section
     {
-      std::cout << "thread of printdata: "  << omp_get_thread_num() << std::endl << std::flush;
-      printdata(DATA, terminate);
+      sensor.start(terminate);
     }
     #pragma omp section
     {
-      std::cout << "thread of sensor: " <<  omp_get_thread_num() << std::endl << std::flush;
-      sensor.start(terminate);
+      while (!kbhit()) {
+	bcm2835_delay(100);
+	UI_DATA.g_direction = SEN_DATA.g_direction;
+	UI_DATA.acceleration = SEN_DATA.g_direction;
+	UI_DATA.speed = SEN_DATA.speed;
+	UI_DATA.angular_speed = SEN_DATA.angular_speed;
+	UI.update();
+      }
+      terminate = true;
     }
   }
   return 0;
-}
-
-void printdata(SensorData &DATA, bool &terminate) {
-  while (!kbhit()) {
-    std::cout << "\naccel: ";
-    DATA.acceleration.print();
-    std::cout << "   omega: ";
-    DATA.angular_speed.print();
-    std::cout << "   g: ";
-    DATA.g_direction.print();
-    
-    bcm2835_delay(100);
-  }
-  terminate = true;
 }
 
 int kbhit()

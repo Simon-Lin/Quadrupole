@@ -1,6 +1,12 @@
 #include "Drivers/PCA9685.h"
 #include "Vector3D.h"
 
+struct ControlParameters {
+  float bal_lin, bal_diff, bal_int;
+  float yaw_lin, yaw_diff;
+  float att_con, att_lin, att_diff, att_int;
+};
+
 struct ServoData {
   float UR, UL, DL, DR;
 };
@@ -8,14 +14,18 @@ struct ServoData {
 class Controller {
  public:
   Controller();
+  Controller(ControlParameters parameters);
   ~Controller();
 
   bool initialize ();
-
+  
+  //set autocontrol formula paremeters
+  void setParameters (ControlParameters parameters);
+  
   //auto control methods
   void control (float thrust, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set);
-  void control_HoldAtt (float z_speed ,float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set);
-  void control_hover (float yaw, float yaw_set, Vector3D speed);
+  void control_HoldAtt (float z_speed, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set);
+  void control_Hover (float yaw, float yaw_set, Vector3D speed);
     
  private:
   //algorithm and hardware control methods
@@ -25,10 +35,9 @@ class Controller {
   void setServo (ServoData input);
   
   //algorithm data & parameters
-  float c_int, c_con, c_diff, c_lin;
-  float c_yaw_lin, c_yaw_diff;
-  float theta_0, yaw_0, t0, dt;
-  float theta_int;
+  ControlParameters para;
+  float theta_0, yaw_0, v_z0, t0, dt;
+  float theta_int, x_z;
   
   PCA9685 servo;
 };
