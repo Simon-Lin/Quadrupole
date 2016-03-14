@@ -18,7 +18,8 @@ int main() {
   UI.initialize();
   
   bool terminate = false;
-  //  sensor.IMU_Calibrate();
+  sensor.IMU_Calibrate();
+  return 0;
   //  sensor.IMU_SelfTest();
 
   #pragma omp parallel sections

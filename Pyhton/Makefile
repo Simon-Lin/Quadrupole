@@ -3,7 +3,7 @@ OBJS = ../Vector3D.o ../Sensor.o ../Drivers/I2Cdev.o ../Drivers/MPU6050.o ../Dri
 all: Quad.so
 
 Quad.so: wrapper.o $(OBJS)
-	g++ -shared -Wl,--export-dynamic -o Quad.so wrapper.o $(OBJS) -l boost_python -l bcm2835
+	g++ -shared -Wl,--export-dynamic -o Quad.so wrapper.o $(OBJS) -lboost_python-py27 -lbcm2835 -fopenmp
 
 wrapper.o: wrapper.cpp
 	g++ -c wrapper.cpp -ansi -O3 -I/usr/include/python2.7

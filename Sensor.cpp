@@ -2,7 +2,13 @@
 #include <iostream>
 #include <math.h>
 
-//default initializer
+//plain initializer (only used in testing)
+Sensor::Sensor (float sampling_rate) {
+  DATA = NULL;
+  sampling_time = 1000/sampling_rate;  
+}
+
+//initializer with DATA
 Sensor::Sensor (SensorData *DATA_ref, float sampling_rate) {
   DATA = DATA_ref;
   sampling_time = 1000/sampling_rate;

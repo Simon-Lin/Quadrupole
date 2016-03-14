@@ -16,6 +16,7 @@ struct SensorData {
 
 class Sensor {
  public:
+  Sensor(float sampling_rate);
   Sensor(SensorData *DATA_ref, float sampling_rate);
   ~Sensor();
 
