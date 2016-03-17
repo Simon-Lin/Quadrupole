@@ -41,7 +41,7 @@ Vector3D decode_v (char *in);
 int main(int argc, char *argv[]) {
 
   if (argc == 1) {
-  	printf("please provide Quadrupole server IP");
+  	printf("please provide Quadrupole server IP\n");
   	return 1;
   }
 
@@ -116,13 +116,13 @@ int main(int argc, char *argv[]) {
     js = Gamepad_deviceAtIndex(0);
     mvprintw(row_max-1, 0, "joystick: %s detected", js->description);
     refresh();
-  } /*else {
+  } else {
     mvprintw(row_max-1, 0, "no joysticks detected. exiting...");
     refresh();
     getch();
     endwin();
     return 1;
-    }*/
+  }
   
   //display data
   float pressure, temp, height;
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
     refresh();
 
     //get input
-    /*    Gamepad_processEvents();
+    Gamepad_processEvents();
     throttle = js->axisStates[0];
     yaw_set = js->axisStates[1];
     g_dir_set.x = js->axisStates[2];
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
 	refresh();
 	exit = false;
       }
-      }*/
+      }
     
     //upload control signal (21 bytes)
     serialize (throttle, buffer);
