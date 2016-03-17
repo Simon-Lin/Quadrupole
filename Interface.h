@@ -1,6 +1,14 @@
-//User Interface and remote communication class
-#include <ncurses.h>
-#include <linux/joystick.h>
+//remote communication class - server side
+
+//port number of server program
+#define PORTNO 13704
+//maxium continous loss of packet before starting hovering
+#define MAX_LOSS_PACKET 20
+
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "Vector3D.h"
 
 struct InterfaceData {
@@ -22,16 +30,19 @@ class Interface {
   bool initialize();
   void start(); // Used with OpenMP parallellism feature. not realized for now.
   void update();
-  void joystickTest();
   
  private:
   InterfaceData *DATA;
 
-  //joystick data
-  int js_fd;
-  js_event js;
-  bool button[32];
-  int16_t axis[8];
-  
-  int row_max, col_max;
+  //socket data
+  int sockfd, newsockfd;
+  sockaddr_in serv_addr, cli_addr;
+  char buffer[100];
+  int lost_pack;
+
+  //serialization
+  void serialize (float in, char *out);
+  void serialize (Vector3D in, char *out);
+  float decode_f (char *in);
+  Vector3D decode_v (char *out);
 };

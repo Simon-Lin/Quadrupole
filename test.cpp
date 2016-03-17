@@ -16,12 +16,8 @@ int main() {
   InterfaceData UI_DATA;
   Interface UI(&UI_DATA);
   UI.initialize();
-  
-  bool terminate = false;
-  sensor.IMU_Calibrate();
-  return 0;
-  //  sensor.IMU_SelfTest();
 
+  bool terminate  = false;
   #pragma omp parallel sections
   {
     #pragma omp section
@@ -33,7 +29,7 @@ int main() {
       while (!kbhit()) {
 	bcm2835_delay(100);
 	UI_DATA.g_direction = SEN_DATA.g_direction;
-	UI_DATA.acceleration = SEN_DATA.g_direction;
+	UI_DATA.acceleration = SEN_DATA.acceleration;
 	UI_DATA.speed = SEN_DATA.speed;
 	UI_DATA.angular_speed = SEN_DATA.angular_speed;
 	UI.update();
