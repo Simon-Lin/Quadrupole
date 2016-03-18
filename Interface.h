@@ -15,7 +15,7 @@ struct InterfaceData {
   //control signal revieced from user
   float throttle, yaw_set;
   Vector3D g_direction_set;
-  bool att_hold;
+  bool att_hold, power_off;
 
   //data passed to the UI display
   float pressure, temperature, height;
