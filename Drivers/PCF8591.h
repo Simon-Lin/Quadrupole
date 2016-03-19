@@ -24,7 +24,7 @@ class PCF8591 {
 
  private:
   uint8_t addr;
-  int adc_mode;
+  int adc_mode, adc_channel;
   bool dac_on;
 };
 

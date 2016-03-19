@@ -5,7 +5,7 @@
 #include <bcm2835.h>
 #include <iostream>
 
-bool controlcycle (bool &terminate) {
+bool controlcycle (bool &terminate, Sensor &sensor, Interface &interface, Controller &controller, SensorData &SEN_DATA, InterfaceData &INT_DATA) {
   bcm2835_delay (100);
   
   INT_DATA.g_direction = SEN_DATA.g_direction;
@@ -16,7 +16,7 @@ bool controlcycle (bool &terminate) {
   INT_DATA.temperature = SEN_DATA.temperature;
   interface.update();
     
-  if (INT_DATA.atthold) {
+  if (INT_DATA.att_hold) {
     controller.control_HoldAtt (SEN_DATA.speed.z, SEN_DATA.angular_speed.z, INT_DATA.yaw_set, SEN_DATA.g_direction, INT_DATA.g_direction_set);
   } else {
     controller.control (INT_DATA.throttle, SEN_DATA.angular_speed.z, INT_DATA.yaw_set, SEN_DATA.g_direction, INT_DATA.g_direction_set);  
@@ -33,7 +33,7 @@ bool controlcycle (bool &terminate) {
 int main (int argc, char *argv[]) {
   system("clear");
   std::cout << "Quadrupole controller side ver 0.1\n";
-  std::cout << "Initializing sensors...\n"
+  std::cout << "Initializing sensors...\n";
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 50);
   sensor.initialize();
@@ -57,7 +57,7 @@ int main (int argc, char *argv[]) {
     }
     #pragma omp section
     {
-      while (controlcycle(terminate));
+      while (controlcycle(terminate, sensor, interface, controller, SEN_DATA, INT_DATA));
     }
   }
   
