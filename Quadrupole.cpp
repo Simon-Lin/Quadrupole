@@ -44,9 +44,16 @@ int main (int argc, char *argv[]) {
   interface.initialize();
 
   std::cout << "Initializing servo controller...\n";
-  Controller controller;
+  ControlParameters PARA;
+  PARA.bal_lin = -1;
+  PARA.bal_diff = PARA.bal_int = 0;
+  PARA.yaw_lin = -1;
+  PARA.yaw_diff = 0;
+  PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0;
+  Controller controller (PARA);
   controller.initialize();
 
+  bcm2835_delay(500);
   std::cout << "Startup process complete! Ready for a flight.\n";
   bool terminate = false;
   #pragma omp parallel sections
@@ -60,6 +67,7 @@ int main (int argc, char *argv[]) {
       while (controlcycle(terminate, sensor, interface, controller, SEN_DATA, INT_DATA));
     }
   }
-  
+
+  std::cout << "bye!\n";
   return 0;
 }

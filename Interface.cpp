@@ -104,8 +104,8 @@ void Interface::update () {
     DATA->throttle = decode_f (buffer);
     DATA->yaw_set = decode_f (buffer+4);
     DATA->g_direction_set = decode_v (buffer+8);
-    DATA->att_hold = ((*(buffer + 20) >> 2) == 0);
-    DATA->power_off = ((*(buffer + 20) << 2) == 0);
+    DATA->att_hold = ((*(buffer + 20) << 4) != 0);
+    DATA->power_off = ((*(buffer + 20) >> 4) != 0);
   }
 }
 

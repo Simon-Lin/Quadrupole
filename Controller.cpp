@@ -1,8 +1,7 @@
-
 #include "Controller.h"
 #include <math.h>
 #include <bcm2835.h>
-
+#include <stdio.h>
 
 //default constructor - initialize class with default parameters
 Controller::Controller() {
@@ -18,6 +17,9 @@ Controller::~Controller() {
 }
 
 bool Controller::initialize() {
+  theta_int = 0;
+  x_z = 0;
+  t0 = bcm2835_st_read() / 1000000.0;
   servo.initialize();
   return 1;
 }
@@ -39,7 +41,7 @@ void Controller::control (float thrust, float yaw, float yaw_set, Vector3D g_dir
   ServoData power;
   power.UR = power.UL = power.DR = power.DL = thrust;
   
-  float t = bcm2835_st_read() / 1000000;
+  float t = bcm2835_st_read() / 1000000.0;
   dt = t - t0;
   t0 = t;
 
@@ -51,7 +53,7 @@ void Controller::control (float thrust, float yaw, float yaw_set, Vector3D g_dir
 void Controller::control_HoldAtt (float z_speed, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set) {
   ServoData power;
 
-  float t = bcm2835_st_read() / 1000000;
+  float t = bcm2835_st_read() / 1000000.0;
   dt = t - t0;
   t0 = t;
 
@@ -65,7 +67,7 @@ void Controller::control_HoldAtt (float z_speed, float yaw, float yaw_set, Vecto
 void Controller::attAlg (float v_z, ServoData &output) {
   //attitude holding thrust formula: thrust = ca0 + ca1 v_z + ca2 a_z + ca3 x_z
   float a_z = (v_z - v_z0) / dt;
-  x_z += (v_z + v_z0) *dt / 2;
+  x_z += (v_z + v_z0) * dt / 2.0;
   float thrust = para.att_con + para.att_lin * v_z + para.att_diff * a_z + para.att_int * x_z;
   v_z0 = v_z;
   output.UL = output.UR = output.DL = output.DR = thrust;
@@ -92,7 +94,7 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
 
   //differentation and integration of theta
   float theta_diff = (theta - theta_0) / dt;
-  theta_int += (theta + theta_0) * dt / 2;
+  theta_int += (theta + theta_0) * dt / 2.0;
   theta_0 = theta;
   
   //correction vector formula: (^ stands for unit vector in x-y plane)
@@ -101,7 +103,7 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
   tmp.z = 0;
   tmp.normalize();
   Vector3D  f_corr = - (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
-  
+
   //convert the correction vector to the power of motors
   output.UR += f_corr.x + f_corr.y;
   output.DR += f_corr.x - f_corr.y;
@@ -110,7 +112,7 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
 }
 
 
-void Controller::setServo (ServoData input) {
+void Controller::setServo (ServoData input) {  
   #pragma omp critical (I2C_access)
   {
   servo.setPWM (0, input.UR);

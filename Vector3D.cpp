@@ -81,7 +81,7 @@ void Vector3D:: normalize() {
 }
 
 float Vector3D::getAngle (Vector3D &t) {
-  float cosine = this->norm() * t.norm() / this->innerProduct(t);
+  float cosine = this->innerProduct(t) / this->norm() / t.norm();
   return acos(cosine);
 }
 
