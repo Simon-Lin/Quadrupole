@@ -131,11 +131,12 @@ int main(int argc, char *argv[]) {
   float throttle = 0, yaw_set = 0;
   Vector3D g_dir_set;
   bool att_hold = false;
+  bool exit = false;	
   //inner processing
   float roll, pitch;
   bool att_hold_pressed = false;
   bool exit_pressed = false;
-  bool exit = false;
+  bool exit_check = false;
   
   //main loop
   while (true) {
@@ -165,15 +166,16 @@ int main(int argc, char *argv[]) {
 
     //get input
     Gamepad_processEvents();
-    throttle = js->axisStates[1];
+    throttle = -js->axisStates[1];
     yaw_set = js->axisStates[0];
     g_dir_set.x = js->axisStates[2];
-    g_dir_set.y = js->axisStates[3];
+    g_dir_set.y = -js->axisStates[3];
+    g_dir_set.z = sqrt(1 - g_dir_set.x*g_dir_set.x - g_dir_set.y*g_dir_set.y);
     //att_hold
-    if (js->buttonStates[0]) {
+    if (js->buttonStates[16]) {
       if(!att_hold_pressed) {
-	att_hold = att_hold ? false : true;
-	att_hold_pressed = true;
+	    att_hold = att_hold ? false : true;
+	    att_hold_pressed = true;
       }
     } else {
       att_hold_pressed = false;
@@ -181,35 +183,43 @@ int main(int argc, char *argv[]) {
     //exit
     if (js->buttonStates[9]) {
       if (!exit_pressed) {
-	if (exit) {
-	  break;
-	} else {
-	  exit = true;
-	  mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
-	  refresh();
-	}
-	exit_pressed = true;
+        if (exit_check) {
+      	  exit = true;
+        } else {
+          exit_pressed = true;
+          mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
+          refresh();
+        }
       }
     } else {
-      exit_pressed = false;
+      if (exit_pressed) {
+        exit_pressed = false;
+        exit_check = true;
+      }
     }
     //cancel
     if (js->buttonStates[10]) {
-      if (exit) {
-	mvprintw(row_max-1, 0, "cancelled");
-	refresh();
-	exit = false;
+      if (exit_check) {
+		mvprintw(row_max-1, 0, "cancelled                                 ");
+		refresh();
+		exit_check = false;
       }
-      }
+    }
     
     //upload control signal (21 bytes)
     serialize (throttle, buffer);
     serialize (yaw_set, buffer+4);
     serialize (g_dir_set, buffer+8);
-    *((char*)buffer+20) = att_hold;
+    buffer[20] = 0;
+    if (att_hold) buffer[20] += 1;
+	if (exit) buffer[20] += (1 << 4);
     send (sockfd, buffer, 21, 0);
     
-    usleep(DELAY_MILLISEC * 1000);
+    if (exit) {
+      break;
+    } else {
+      usleep(DELAY_MILLISEC * 1000);
+    }
   }
 
   endwin();	
