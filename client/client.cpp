@@ -165,8 +165,8 @@ int main(int argc, char *argv[]) {
 
     //get input
     Gamepad_processEvents();
-    throttle = js->axisStates[0];
-    yaw_set = js->axisStates[1];
+    throttle = js->axisStates[1];
+    yaw_set = js->axisStates[0];
     g_dir_set.x = js->axisStates[2];
     g_dir_set.y = js->axisStates[3];
     //att_hold
@@ -179,13 +179,13 @@ int main(int argc, char *argv[]) {
       att_hold_pressed = false;
     }
     //exit
-    if (js->buttonStates[1]) {
+    if (js->buttonStates[9]) {
       if (!exit_pressed) {
 	if (exit) {
 	  break;
 	} else {
 	  exit = true;
-	  mvprintw(row_max-1, 0, "press enter again to exit, cancel to cancel.");
+	  mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
 	  refresh();
 	}
 	exit_pressed = true;
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
       exit_pressed = false;
     }
     //cancel
-    if (js->buttonStates[2]) {
+    if (js->buttonStates[10]) {
       if (exit) {
 	mvprintw(row_max-1, 0, "cancelled");
 	refresh();
