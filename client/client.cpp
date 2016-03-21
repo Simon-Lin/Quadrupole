@@ -4,6 +4,7 @@
 #include <ncurses.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -40,15 +41,16 @@ Vector3D decode_v (char *in);
 
 
 int main(int argc, char *argv[]) {
-
-  if (argc == 1) {
-  	printf("please provide Quadrupole server IP\n");
+  system("clear");
+  if (argc == 1 || (argc == 3 && strcmp(argv[2], "-r"))) {
+  	printf("usage: client [serverside IP] [-r]\n");
   	return 1;
   }
+  printf("Quadrupole client side ver 0.1\n");
 
   //socket initialization
   int sockfd;
-  sockaddr_in serv_addr;
+  sockaddr_in serv_addr, client_addr;
   char buffer[100];
   printf("initalizing socket...\n");
   fflush(stdout);
@@ -56,6 +58,14 @@ int main(int argc, char *argv[]) {
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
       perror("cannot open socket");
       return 1;
+  }
+  bzero((char*) &client_addr, sizeof(client_addr));
+  client_addr.sin_family = AF_INET;
+  client_addr.sin_addr.s_addr = htonl (INADDR_ANY);
+  client_addr.sin_port = htons(PORTNO);
+  if (bind(sockfd, (sockaddr*)&client_addr, sizeof(client_addr)) < 0) {
+    perror("socket binding failed");
+    return 1;
   }
   
   bzero((char*) &serv_addr, sizeof(serv_addr));
@@ -66,51 +76,57 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  printf("establishing connection...\n");
+  fflush(stdout);
   int servlen = sizeof(serv_addr);
   if (connect(sockfd, (struct sockaddr*)&serv_addr, servlen) < 0) {
     perror("cannot establish connection");
     return 1;
   }
 
-  //send ACK signal to server
-  char ackbuf[] =  "QUAD";
-  if(send(sockfd, ackbuf, 5, 0) < 0) {
-    perror("cannot send ack signal to server");
+  //if in resume connection mode then skip handshaking
+  if (argc == 2) {
+    
+    //send ACK signal to server
+    char ackbuf[] =  "QUAD";
+    if(send(sockfd, ackbuf, 5, 0) < 0) {
+      perror("cannot send ack signal to server");
+      return 1;
+    }
+    
+    //wait for server's responce
+    fd_set fds;
+    FD_ZERO (&fds);
+    FD_SET (sockfd, &fds);
+    timeval tv;
+    tv.tv_sec = 10;
+    tv.tv_usec = 0;
+    int flag = select(FD_SETSIZE, &fds, NULL, NULL, &tv);
+    if (flag < 0) {
+      perror("select: ");
+      return 1;
+    } else if (flag == 0) {
+    printf("ERROR: connection timeout. exiting...\n");
     return 1;
+    }
+    if(recv(sockfd, ackbuf, 5, 0) < 0) {
+      perror("cannot establish connection");
+      return 1;
+    }
+    if (strcmp(ackbuf, "QUAD")) {
+      printf("WRONG connection from server. exiting...\n");
+      return 1;
+    }
+    
+    //initialization complete, setting socket to non-blocking mode
+    if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) | O_NONBLOCK)) {
+      perror("setting socket to non-blocking failed");
+      return 1;
+    }
+    printf ("connection established, socket initialization complete.\n");
+    usleep(500000);
   }
-
-  //wait for server's responce
-  fd_set fds;
-  FD_ZERO (&fds);
-  FD_SET (sockfd, &fds);
-  timeval tv;
-  tv.tv_sec = 10;
-  tv.tv_usec = 0;
-  int flag = select(1, &fds, NULL, NULL, &tv);
-  if (flag < 0) {
-    perror("select: ");
-    return 1;
-  } else if (flag == 0) {
-    printf("connection timeout\n");
-    return 1;
-  }
-  if(recv(sockfd, ackbuf, 5, 0) < 0) {
-    perror("cannot recieve ack signal from server");
-    return 1;
-  }
-  if (strcmp(ackbuf, "QUAD")) {
-    printf("WRONG connection from server. exiting...\n");
-    return 1;
-  }
-
-  //initialization complete, setting socket to non-blocking mode
-  if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) | O_NONBLOCK)) {
-    perror("setting socket to non-blocking failed");
-    return 1;
-  }
-  printf ("connection established, socket initialization complete.\n");
-  usleep(500000);
-
+  
   //ncurses initialization
   initscr();
   keypad(stdscr, TRUE);
@@ -139,7 +155,7 @@ int main(int argc, char *argv[]) {
     getch();
     endwin();
     return 1;
-  }
+    }
   
   //display data
   float pressure, temp, height;
