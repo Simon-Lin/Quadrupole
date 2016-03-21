@@ -46,10 +46,10 @@ int main (int argc, char *argv[]) {
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
   PARA.bal_lin = -1;
-  PARA.bal_diff = PARA.bal_int = 0;
+  PARA.bal_diff = PARA.bal_int = 0.0001;
   PARA.yaw_lin = -1;
   PARA.yaw_diff = 0;
-  PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0;
+  PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0.0001;
   Controller controller (PARA);
   controller.initialize();
 

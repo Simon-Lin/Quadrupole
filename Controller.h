@@ -37,7 +37,7 @@ class Controller {
   //algorithm data & parameters
   ControlParameters para;
   float theta_0, yaw_0, v_z0, t0, dt;
-  float theta_int, x_z;
-  
+  float theta_int, x_z, theta_int_bound, x_z_bound;
+
   PCA9685 servo;
 };

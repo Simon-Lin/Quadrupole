@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <math.h>
 #include "Gamepad.h"
@@ -71,10 +72,26 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  //send and check server ACK
+  //send ACK signal to server
   char ackbuf[] =  "QUAD";
   if(send(sockfd, ackbuf, 5, 0) < 0) {
     perror("cannot send ack signal to server");
+    return 1;
+  }
+
+  //wait for server's responce
+  fd_set fds;
+  FD_ZERO (&fds);
+  FD_SET (sockfd, &fds);
+  timeval tv;
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  int flag = select(1, &fds, NULL, NULL, &tv);
+  if (flag < 0) {
+    perror("select: ");
+    return 1;
+  } else if (flag == 0) {
+    printf("connection timeout\n");
     return 1;
   }
   if(recv(sockfd, ackbuf, 5, 0) < 0) {
@@ -200,7 +217,7 @@ int main(int argc, char *argv[]) {
 	refresh();
 	exit = false;
       }
-      }
+    }
     
     //upload control signal (21 bytes)
     serialize (throttle, buffer);

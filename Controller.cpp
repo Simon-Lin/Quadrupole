@@ -34,6 +34,10 @@ void Controller::setParameters(ControlParameters parameters) {
   para.att_lin = parameters.att_lin;
   para.att_diff = parameters.att_diff;
   para.att_int = parameters.att_int;
+
+  //set boundary values to integrated results
+  theta_int_bound = abs(1/para.bal_int);
+  x_z_bound = abs(1/para.att_int);
 }
 
 
@@ -68,6 +72,14 @@ void Controller::attAlg (float v_z, ServoData &output) {
   //attitude holding thrust formula: thrust = ca0 + ca1 v_z + ca2 a_z + ca3 x_z
   float a_z = (v_z - v_z0) / dt;
   x_z += (v_z + v_z0) * dt / 2.0;
+  if (abs(x_z) > x_z_bound) {
+    if (signbit(x_z) ) {
+      x_z = -x_z_bound;
+    } else {
+      x_z = x_z_bound;
+    }
+  }
+  
   float thrust = para.att_con + para.att_lin * v_z + para.att_diff * a_z + para.att_int * x_z;
   v_z0 = v_z;
   output.UL = output.UR = output.DL = output.DR = thrust;
@@ -95,6 +107,13 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
   //differentation and integration of theta
   float theta_diff = (theta - theta_0) / dt;
   theta_int += (theta + theta_0) * dt / 2.0;
+  if (abs(theta_int) > theta_int_bound) {
+    if (signbit(theta_int) ) {
+      theta_int = -theta_int_bound;
+    } else {
+      theta_int = theta_int_bound;
+    }
+  }
   theta_0 = theta;
   
   //correction vector formula: (^ stands for unit vector in x-y plane)
