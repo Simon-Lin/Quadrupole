@@ -4,7 +4,11 @@
 #include "Vector3D.h"
 #include "Drivers/MPU6050.h"
 #include "Drivers/BMP085.h"
-#include <vector>
+#include "Drivers/PCF8591.h"
+#include <pthread.h>
+
+extern pthread_spinlock_t I2C_ACCESS;
+extern bool terminate;
 
 struct SensorData {
   //instaneous measurement data
@@ -24,27 +28,32 @@ class Sensor {
 
   //Start data collection and related calculation.
   //Update the results peridocally according to sampling rate.
-  //Should only be called within an OpenMP section.
-  void start(bool &terminate);
+  //Should only be called with pthread_create()
+  static void* start(void *context);
   
   //Obtain instaneous and integrated results
   void getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction);
- 
+  
   //Obtain instaneous sensor data
   void getAccel (Vector3D &acceleration);
   void getGyro (Vector3D &angular_speed);
   float getPressure ();
   float getAltitude ();
-  float GetTemp ();
+  float getTemperature ();
+  float getBattVoltage ();
 
   //Calibration
-  void IMU_Calibrate ();
+  void accelCalibrate();
+  void gyroCalibrate();
   void IMU_GetOffsets ();
   void IMU_SelfTest ();
   
  private:
   //interface data
   SensorData *DATA;
+
+  //pthread start wraps to here
+  void* _start();
   
   //in miliseconds
   float sampling_time;
@@ -68,6 +77,10 @@ class Sensor {
   //Sensors
   MPU6050 IMU;
   BMP085  TPU;
+  PCF8591 ADC;
+
+  bool TPU_connected, ADC_connected;
+  float ref_voltage;
   
   //utility
   void fixOffset(float &cal_1, float &cal_0, float &off, float &fix);

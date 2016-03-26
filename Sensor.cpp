@@ -5,13 +5,15 @@
 //plain initializer (only used in testing)
 Sensor::Sensor (float sampling_rate) {
   DATA = NULL;
-  sampling_time = 1000/sampling_rate;  
+  sampling_time = 1000/sampling_rate;
+  ref_voltage = 5.0;
 }
 
 //initializer with DATA
 Sensor::Sensor (SensorData *DATA_ref, float sampling_rate) {
   DATA = DATA_ref;
   sampling_time = 1000/sampling_rate;
+  ref_voltage = 5.0;
 }
 
 Sensor::~Sensor() {
@@ -35,13 +37,23 @@ bool Sensor::initialize () {
   IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
   LSB_accel = 16384;
   LSB_gyro  = 65.5;
-  
   IMU.setSleepEnabled(false);
 
   if(!TPU.testConnection()) {
     std::cout << "TPU connection test failed! Ignoring PTU.\n";
+    TPU_connected = false;
   } else {
     TPU.initialize();
+    TPU_connected = true;
+  }
+
+  if(!ADC.testConnection()) {
+    std::cout << "ADC connection test failed! Ignoring ADC.\n"
+              << "Please watch out for battery capacity.\n";
+    ADC_connected = false;
+  } else {
+    ADC.initialize();
+    ADC_connected = true;
   }
   
   //set initial value to buffer
@@ -57,109 +69,38 @@ bool Sensor::initialize () {
   return 1;
 }
 
-void Sensor::start(bool &terminate) {
+
+void* Sensor::start(void *context) {
+  return ((Sensor*)context) -> _start();
+}
+
+void* Sensor::_start() {
+  int cycle = 0;
   while (!terminate) {
     getMotionData (DATA->acceleration, DATA->speed, DATA->position, DATA->angular_speed, DATA->g_direction);
+
+    //these data are updated once per ten sensor cycle
+    if (cycle >= 10) {
+      if (TPU_connected) {
+	DATA->pressure = getPressure();
+	DATA->temperature = getTemperature();
+      } else {
+	DATA->pressure = NAN;
+	DATA->temperature = NAN;
+      }
+      if (ADC_connected) {
+	DATA->batt_voltage = getBattVoltage();
+      } else {
+	DATA->batt_voltage = NAN;
+      }
+      cycle = 0;
+      }
     
     bcm2835_delay(sampling_time);
-  }
-}
-
-void Sensor::IMU_Calibrate() {
-  std::cout << "you are going to perform an HARD calibration.\n"
-            << "This is achieved by resetting the offsets and gains in IMU chip.\n";
-  std::cout << "Proceed (y/n)? ";
-  char input;
-  do {
-    std::cin >> input;
-  } while (input != 'Y' && input != 'y' && input != 'n' && input != 'N');
-  if (input == 'n' || input == 'N') return;
-  std::cout << "Please place the IMU with z axis pointing directly down. Ready (y)? ";
-  do {
-    std::cin >> input;
-  } while (input != 'Y' && input != 'y');
-  std::cout << "Performing calibration. Do not move the device...\n";
-  
-  //initial guess of offset
-  Vector3D accel_off(0,0,0), gyro_off(0,0,0);
-  IMU.setXAccelOffset((int16_t)accel_off.x);
-  IMU.setYAccelOffset((int16_t)accel_off.y);
-  IMU.setZAccelOffset((int16_t)accel_off.z);
-  IMU.setXGyroOffset((int16_t)gyro_off.x);
-  IMU.setYGyroOffset((int16_t)gyro_off.y);
-  IMU.setZGyroOffset((int16_t)gyro_off.z);
-  bcm2835_delay(100);
-
-  Vector3D accel_cal_0, gyro_cal_0, accel_cal_1, gyro_cal_1;
-  Vector3D accel_fix(512, 512, 512), gyro_fix(256, 256, 256);
-  
-  //obtain initial offset value
-  for (int j = 0; j < 100; j++) {
-    int16_t ax, ay, az, gx, gy, gz;
-    IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-    accel_cal_0 = accel_cal_0 + Vector3D(ax, ay, az);
-    gyro_cal_0 = gyro_cal_0 + Vector3D(gx, gy, gz);
-    bcm2835_delay(10);
-  }
-  accel_cal_0.scale(0.01);
-  accel_cal_0.z += LSB_accel;
-  gyro_cal_0.scale(0.01);
-
-  for (int i = 0; i < 20; i++) {
-    
-    //obtain sensor value
-    for (int j = 0; j < 500; j++) {
-      int16_t ax, ay, az, gx, gy, gz;
-      IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-      accel_cal_1 = accel_cal_1 + Vector3D(ax, ay, az);
-      gyro_cal_1 = gyro_cal_1 + Vector3D(gx, gy, gz);
-      bcm2835_delay(10);
-    }
-    accel_cal_1.scale(0.002);
-    gyro_cal_1.scale(0.002);
-    
-    //fix the offset value
-    fixOffset (gyro_cal_1.x, gyro_cal_0.x, gyro_off.x, gyro_fix.x);
-    fixOffset (gyro_cal_1.y, gyro_cal_0.y, gyro_off.y, gyro_fix.y);
-    fixOffset (gyro_cal_1.z, gyro_cal_0.z, gyro_off.z, gyro_fix.z);
-    fixOffset (accel_cal_1.x, accel_cal_0.x, accel_off.x, accel_fix.x);
-    fixOffset (accel_cal_1.y, accel_cal_0.y, accel_off.y, accel_fix.y);
-    accel_cal_1.z += LSB_accel;
-    fixOffset (accel_cal_1.z, accel_cal_0.z, accel_off.z, accel_fix.z);
-
-    //Write new offsets
-    IMU.setXAccelOffset((int16_t)round(accel_off.x));
-    IMU.setYAccelOffset((int16_t)round(accel_off.y));
-    IMU.setZAccelOffset((int16_t)round(accel_off.z));
-    IMU.setXGyroOffset((int16_t)round(gyro_off.x));
-    IMU.setYGyroOffset((int16_t)round(gyro_off.y));
-    IMU.setZGyroOffset((int16_t)round(gyro_off.z));
-    bcm2835_delay(100);
-    std::cout << ">" << std::flush;
+    cycle++;
   }
 
-  std::cout << std::endl;
-  IMU_GetOffsets();
-  std::cout << "\ncalibration complete.\n";
-}
-
-void Sensor::IMU_GetOffsets () {
-  //  std::cout << "Obtaining offsets and gains data from IMU:\n";
-  float ax_off, ay_off, az_off, gx_off, gy_off, gz_off, x_gain, y_gain, z_gain;
-
-  ax_off = IMU.getXAccelOffset();
-  ay_off = IMU.getYAccelOffset();
-  az_off = IMU.getZAccelOffset();
-  gx_off = IMU.getXGyroOffset(); 
-  gy_off = IMU.getYGyroOffset();
-  gz_off = IMU.getZGyroOffset();
-  x_gain = IMU.getXFineGain();
-  y_gain = IMU.getYFineGain();
-  z_gain = IMU.getZFineGain();
-
-  std::cout << "gyroscope offsets (deg/s):   gx: " << gx_off << "   gy: " << gy_off << "   gz: " << gz_off << std::endl;
-  std::cout << "accelerometer offsets (g):   ax: " << ax_off << "   ay: " << ay_off << "   az: " << az_off << std::endl;
-  std::cout << "fine gains:   x:" << x_gain << "   y: " << y_gain << "   z: " << z_gain << std::endl;
+  pthread_exit(NULL);
 }
 
 
@@ -167,8 +108,9 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   //obtain data from motion sensor
   int16_t ax, ay, az, gx, gy, gz;
 
-  #pragma omp critical (I2C_access)
+  pthread_spin_lock (&I2C_ACCESS);
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+  pthread_spin_unlock (&I2C_ACCESS);
   
   time = bcm2835_st_read() / 1000.0;
   accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
@@ -198,6 +140,152 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   g_direction = g_dir;
   acceleration = accel;
   angular_speed = gyro;
+}
+
+
+float Sensor::getPressure() {
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = TPU.getPressure();
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
+}
+
+float Sensor::getTemperature() {
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = TPU.getTemperatureC();
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
+}
+
+float Sensor::getBattVoltage() {
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = ref_voltage / ADC.ADConversion();
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
+}
+
+void Sensor::accelCalibrate() {
+  char input;
+  std::cout << "Please place the IMU with z axis pointing directly down. Hit return when ready. ";
+  std::cin >> input;
+  std::cout << "Performing calibration. Do not move the device...\n";
+  
+  //initial guess of offset
+  Vector3D accel_off(0,0,0);
+  IMU.setXAccelOffset((int16_t)accel_off.x);
+  IMU.setYAccelOffset((int16_t)accel_off.y);
+  IMU.setZAccelOffset((int16_t)accel_off.z);
+  bcm2835_delay(100);
+
+  Vector3D accel_cal_0, accel_cal_1;
+  Vector3D accel_fix(512, 512, 512);
+  
+  //obtain initial offset value
+  for (int j = 0; j < 100; j++) {
+    int16_t ax, ay, az;
+    IMU.getAcceleration(&ax, &ay, &az);
+    accel_cal_0 = accel_cal_0 + Vector3D(ax, ay, az);
+    bcm2835_delay(10);
+  }
+  accel_cal_0.scale(0.01);
+  accel_cal_0.z += LSB_accel;
+
+  for (int i = 0; i < 20; i++) {
+    
+    //obtain sensor value
+    for (int j = 0; j < 500; j++) {
+      int16_t ax, ay, az;
+      IMU.getAcceleration(&ax, &ay, &az);
+      accel_cal_1 = accel_cal_1 + Vector3D(ax, ay, az);
+      bcm2835_delay(10);
+    }
+    accel_cal_1.scale(0.002);
+    
+    //fix the offset value
+    fixOffset (accel_cal_1.x, accel_cal_0.x, accel_off.x, accel_fix.x);
+    fixOffset (accel_cal_1.y, accel_cal_0.y, accel_off.y, accel_fix.y);
+    accel_cal_1.z += LSB_accel;
+    fixOffset (accel_cal_1.z, accel_cal_0.z, accel_off.z, accel_fix.z);
+
+    //Write new offsets
+    IMU.setXAccelOffset((int16_t)round(accel_off.x));
+    IMU.setYAccelOffset((int16_t)round(accel_off.y));
+    IMU.setZAccelOffset((int16_t)round(accel_off.z));
+    bcm2835_delay(100);
+    std::cout << ">" << std::flush;
+  }
+
+  std::cout << "\ncalibration complete.\n";
+}
+
+
+void Sensor::gyroCalibrate() {
+  std::cout << "Performing gyroscope calibration. Do not move the device...\n";
+  
+  //initial guess of offset
+  Vector3D gyro_off(0,0,0);
+  IMU.setXGyroOffset((int16_t)gyro_off.x);
+  IMU.setYGyroOffset((int16_t)gyro_off.y);
+  IMU.setZGyroOffset((int16_t)gyro_off.z);
+  bcm2835_delay(100);
+
+  Vector3D gyro_cal_0, gyro_cal_1;
+  Vector3D gyro_fix(256, 256, 256);
+  
+  //obtain initial offset value
+  for (int j = 0; j < 100; j++) {
+    int16_t gx, gy, gz;
+    IMU.getRotation(&gx, &gy, &gz);
+    gyro_cal_0 = gyro_cal_0 + Vector3D(gx, gy, gz);
+    bcm2835_delay(10);
+  }
+  gyro_cal_0.scale(0.01);
+
+  for (int i = 0; i < 20; i++) {
+    
+    //obtain sensor value
+    for (int j = 0; j < 500; j++) {
+      int16_t gx, gy, gz;
+      IMU.getRotation(&gx, &gy, &gz);
+      gyro_cal_1 = gyro_cal_1 + Vector3D(gx, gy, gz);
+      bcm2835_delay(10);
+    }
+    gyro_cal_1.scale(0.002);
+    
+    //fix the offset value
+    fixOffset (gyro_cal_1.x, gyro_cal_0.x, gyro_off.x, gyro_fix.x);
+    fixOffset (gyro_cal_1.y, gyro_cal_0.y, gyro_off.y, gyro_fix.y);
+    fixOffset (gyro_cal_1.z, gyro_cal_0.z, gyro_off.z, gyro_fix.z);
+
+    //Write new offsets
+    IMU.setXGyroOffset((int16_t)round(gyro_off.x));
+    IMU.setYGyroOffset((int16_t)round(gyro_off.y));
+    IMU.setZGyroOffset((int16_t)round(gyro_off.z));
+    bcm2835_delay(100);
+    std::cout << ">" << std::flush;
+  }
+  
+  std::cout << "\ncalibration complete.\n";
+}
+
+
+void Sensor::IMU_GetOffsets () {
+  //  std::cout << "Obtaining offsets and gains data from IMU:\n";
+  float ax_off, ay_off, az_off, gx_off, gy_off, gz_off, x_gain, y_gain, z_gain;
+
+  ax_off = IMU.getXAccelOffset();
+  ay_off = IMU.getYAccelOffset();
+  az_off = IMU.getZAccelOffset();
+  gx_off = IMU.getXGyroOffset(); 
+  gy_off = IMU.getYGyroOffset();
+  gz_off = IMU.getZGyroOffset();
+  x_gain = IMU.getXFineGain();
+  y_gain = IMU.getYFineGain();
+  z_gain = IMU.getZFineGain();
+
+  std::cout << "gyroscope offsets (deg/s):   gx: " << gx_off << "   gy: " << gy_off << "   gz: " << gz_off << std::endl;
+  std::cout << "accelerometer offsets (g):   ax: " << ax_off << "   ay: " << ay_off << "   az: " << az_off << std::endl;
+  std::cout << "fine gains:   x:" << x_gain << "   y: " << y_gain << "   z: " << z_gain << std::endl;
 }
 
 

@@ -132,11 +132,10 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
 
 
 void Controller::setServo (ServoData input) {  
-  #pragma omp critical (I2C_access)
-  {
+  pthread_spin_lock (&I2C_ACCESS);
   servo.setPWM (0, input.UR);
   servo.setPWM (1, input.UL);
   servo.setPWM (2, input.DL);
   servo.setPWM (3, input.DR);
-  }
+  pthread_spin_unlock (&I2C_ACCESS);
 }
