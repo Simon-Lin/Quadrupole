@@ -49,6 +49,7 @@ class PCA9685 {
 		PCA9685();
 		PCA9685(uint8_t address);
 		void initialize();
+	        bool testConnection();
 		
 		// Mode Register Methods
 		void sleep();

@@ -20,6 +20,11 @@ void PCF8591::initialize () {
   I2Cdev::initialize();
 }
 
+bool PCF8591::testConnection() {
+  char buf[8];
+  return bcm2835_i2c_read (buf, 1) == BCM2835_I2C_REASON_OK;
+}
+
 bool PCF8591::setInputMode (uint8_t mode_number, uint8_t channel_number) {
   if (mode_number > 3 || channel_number > 3) return -1;
   adc_mode = mode_number;

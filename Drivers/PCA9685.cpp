@@ -9,6 +9,10 @@ PCA9685::PCA9685(uint8_t address) {
 	devAddr = address;
 }
 
+bool PCA9685::testConnection() {
+  return I2Cdev::readByte(devAddr, PCA9685_NUMREGS, buf) == 1;
+}
+
 void PCA9685::initialize() {
 	//enable register Auto-increment
 	I2Cdev::writeBit(devAddr, PCA9685_MODE1, 5, 1);

@@ -1,22 +1,25 @@
 #include "Vector3D.h"
 #include "Sensor.h"
 #include "Interface.h"
-#include <sys/select.h>
 #include <iostream>
 #include <omp.h>
-
-int kbhit();
+#include <ncurses.h>
 
 int main() {
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 50);
   sensor.initialize();
-
+  sensor.gyroCalibrate();
+  return 0;
   bcm2835_delay(500);
-  InterfaceData UI_DATA;
-  Interface UI(&UI_DATA);
-  UI.initialize();
+  //  InterfaceData UI_DATA;
+  //  Interface UI(&UI_DATA);
+  //  UI.initialize();
 
+  initscr();
+  cbreak();
+  noecho();
+  
   bool terminate  = false;
   #pragma omp parallel sections
   {
@@ -26,13 +29,13 @@ int main() {
     }
     #pragma omp section
     {
-      while (!kbhit()) {
+      while (getch()) {
 	bcm2835_delay(100);
-	UI_DATA.g_direction = SEN_DATA.g_direction;
+	/*	UI_DATA.g_direction = SEN_DATA.g_direction;
 	UI_DATA.acceleration = SEN_DATA.acceleration;
 	UI_DATA.speed = SEN_DATA.speed;
 	UI_DATA.angular_speed = SEN_DATA.angular_speed;
-	UI.update();
+	UI.update();*/
       }
       terminate = true;
     }
@@ -40,21 +43,3 @@ int main() {
   return 0;
 }
 
-int kbhit()
-{
-  struct timeval tv;
-  fd_set read_fd;
-
-  tv.tv_sec=0;
-  tv.tv_usec=0;
-  FD_ZERO(&read_fd);
-  FD_SET(0,&read_fd);
-
-  if(select(1, &read_fd, NULL, NULL, &tv) == -1)
-    return 0;
-
-  if(FD_ISSET(0,&read_fd))
-    return 1;
-
-  return 0;
-}

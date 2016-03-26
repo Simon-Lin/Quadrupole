@@ -21,8 +21,7 @@ while True:
     front = vector(0,0,1)
     front = front.rotate(diff_angle(normal, g_dir), cross(g_dir, normal))
     normal = normal.rotate(diff_angle(normal, g_dir), cross(g_dir, normal))
- #   front = front.rotate(yaw, vector(0,1,0))
- #   normal = normal.rotate(yaw, vector(0,1,0))
+    front = front.rotate(yaw, vector(0,1,0))
+    normal = normal.rotate(yaw, vector(0,1,0))
     mybox.axis = normal
     mybox.up = cross(normal, front)
-    
