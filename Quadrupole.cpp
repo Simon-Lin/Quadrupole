@@ -4,8 +4,13 @@
 #include "Vector3D.h"
 #include <bcm2835.h>
 #include <iostream>
+#include <pthread.h>
 
-bool controlcycle (bool &terminate, Sensor &sensor, Interface &interface, Controller &controller, SensorData &SEN_DATA, InterfaceData &INT_DATA) {
+
+pthread_spinlock_t I2C_ACCESS;
+bool terminate;
+
+bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller, SensorData &SEN_DATA, InterfaceData &INT_DATA) {
   bcm2835_delay (100);
   
   INT_DATA.g_direction = SEN_DATA.g_direction;
@@ -55,19 +60,28 @@ int main (int argc, char *argv[]) {
 
   bcm2835_delay(500);
   std::cout << "Startup process complete! Ready for a flight.\n";
-  bool terminate = false;
-  #pragma omp parallel sections
-  {
-    #pragma omp section
-    {
-      sensor.start (terminate);
-    }
-    #pragma omp section
-    {
-      while (controlcycle(terminate, sensor, interface, controller, SEN_DATA, INT_DATA));
-    }
+  
+  //spinlock initialization
+  if (pthread_spin_init(&I2C_ACCESS, 0)) {
+    std::cout << "pthread spinlock initialization failed.\n";
+   return 1;
   }
+  terminate = false;
+  
+  //start collecting sensor data
+  pthread_t thread_sensor;
+  if (pthread_create (&thread_sensor, NULL, &Sensor::start, &sensor)) {
+    std::cout << "pthread create failed.\n";
+    return 1;
+  }
+  
+  //main loop
+  while (controlcycle(sensor, interface, controller, SEN_DATA, INT_DATA));
 
+  //destructors
+  pthread_join (thread_sensor, NULL);
+  pthread_spin_destroy (&I2C_ACCESS);
+  
   std::cout << "bye!\n";
   return 0;
 }

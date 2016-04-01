@@ -31,11 +31,11 @@ bool Sensor::initialize () {
   }
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
-  IMU.setDLPFMode(MPU6050_DLPF_BW_188);
+  IMU.setDLPFMode(MPU6050_DLPF_BW_98);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
-  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
-  LSB_accel = 16384;
+  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
+  LSB_accel = 8192;
   LSB_gyro  = 65.5;
   IMU.setSleepEnabled(false);
 
@@ -69,9 +69,13 @@ bool Sensor::initialize () {
   return 1;
 }
 
-void Sensor::start(bool &terminate) {
+
+void* Sensor::start(void *context) {
+  return ((Sensor*)context) -> _start();
+}
+
+void* Sensor::_start() {
   int cycle = 0;
-  
   while (!terminate) {
     getMotionData (DATA->acceleration, DATA->speed, DATA->position, DATA->angular_speed, DATA->g_direction);
 
@@ -95,6 +99,8 @@ void Sensor::start(bool &terminate) {
     bcm2835_delay(sampling_time);
     cycle++;
   }
+
+  pthread_exit(NULL);
 }
 
 
@@ -102,8 +108,9 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   //obtain data from motion sensor
   int16_t ax, ay, az, gx, gy, gz;
 
-  #pragma omp critical (I2C_access)
+  pthread_spin_lock (&I2C_ACCESS);
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+  pthread_spin_unlock (&I2C_ACCESS);
   
   time = bcm2835_st_read() / 1000.0;
   accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
@@ -135,17 +142,25 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   angular_speed = gyro;
 }
 
-
 float Sensor::getPressure() {
-  return TPU.getPressure();
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = TPU.getPressure();
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
 }
 
 float Sensor::getTemperature() {
-  return TPU.getTemperatureC();
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = TPU.getTemperatureC();
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
 }
 
 float Sensor::getBattVoltage() {
-  return ref_voltage / ADC.ADConversion();
+  pthread_spin_lock (&I2C_ACCESS);
+  float tmp = ADC.ADConversion() / ref_voltage;
+  pthread_spin_unlock (&I2C_ACCESS);
+  return tmp;
 }
 
 void Sensor::accelCalibrate() {

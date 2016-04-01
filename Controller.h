@@ -1,14 +1,17 @@
 #include "Drivers/PCA9685.h"
 #include "Vector3D.h"
+#include <pthread.h>
+
+extern pthread_spinlock_t I2C_ACCESS;
+
+struct ServoData {
+  float UR, UL, DL, DR;
+};
 
 struct ControlParameters {
   float bal_lin, bal_diff, bal_int;
   float yaw_lin, yaw_diff;
   float att_con, att_lin, att_diff, att_int;
-};
-
-struct ServoData {
-  float UR, UL, DL, DR;
 };
 
 class Controller {

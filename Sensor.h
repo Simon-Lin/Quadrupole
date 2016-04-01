@@ -5,7 +5,10 @@
 #include "Drivers/MPU6050.h"
 #include "Drivers/BMP085.h"
 #include "Drivers/PCF8591.h"
-#include <vector>
+#include <pthread.h>
+
+extern pthread_spinlock_t I2C_ACCESS;
+extern bool terminate;
 
 struct SensorData {
   //instaneous measurement data
@@ -25,8 +28,8 @@ class Sensor {
 
   //Start data collection and related calculation.
   //Update the results peridocally according to sampling rate.
-  //Should only be called within an OpenMP section.
-  void start(bool &terminate);
+  //Should only be called with pthread_create()
+  static void* start(void *context);
   
   //Obtain instaneous and integrated results
   void getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction);
@@ -48,6 +51,9 @@ class Sensor {
  private:
   //interface data
   SensorData *DATA;
+
+  //pthread start wraps to here
+  void* _start();
   
   //in miliseconds
   float sampling_time;

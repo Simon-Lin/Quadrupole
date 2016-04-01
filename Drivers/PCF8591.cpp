@@ -20,9 +20,10 @@ void PCF8591::initialize () {
   I2Cdev::initialize();
 }
 
-bool PCF8591::testConnection() {
-  char buf[8];
-  return bcm2835_i2c_read (buf, 1) == BCM2835_I2C_REASON_OK;
+bool PCF8591::testConnection () {
+  char buf[2];
+  bcm2835_i2c_setSlaveAddress(addr);
+  return bcm2835_i2c_read (buf, 2) == BCM2835_I2C_REASON_OK;
 }
 
 bool PCF8591::setInputMode (uint8_t mode_number, uint8_t channel_number) {
@@ -46,10 +47,12 @@ void PCF8591::DAConversion (float voltage_ratio) {
   char buf[2];
   buf[1] = adc_channel & (adc_mode << 4) & (1 << 6);
   buf[2] = (int) round(256 * voltage_ratio);
+  bcm2835_i2c_setSlaveAddress(addr);
   bcm2835_i2c_write (buf, 2);
 }
 
 void PCF8591::setDACOff () {
   char buf = adc_channel & (adc_mode << 4) & (0 << 6);
+  bcm2835_i2c_setSlaveAddress(addr);
   bcm2835_i2c_write (&buf, 1);
 }

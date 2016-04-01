@@ -2,6 +2,10 @@
 
 #include "../Sensor.h"
 #include "../Vector3D.h"
+#include <pthread.h>
+
+bool terminate;
+pthread_spinlock_t I2C_ACCESS;
 
 using namespace boost::python;
 
