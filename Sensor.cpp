@@ -31,11 +31,11 @@ bool Sensor::initialize () {
   }
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
-  IMU.setDLPFMode(MPU6050_DLPF_BW_188);
+  IMU.setDLPFMode(MPU6050_DLPF_BW_98);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
-  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
-  LSB_accel = 16384;
+  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
+  LSB_accel = 8192;
   LSB_gyro  = 65.5;
   IMU.setSleepEnabled(false);
 
@@ -159,7 +159,7 @@ float Sensor::getTemperature() {
 
 float Sensor::getBattVoltage() {
   pthread_spin_lock (&I2C_ACCESS);
-  float tmp = ref_voltage / ADC.ADConversion();
+  float tmp = ADC.ADConversion() / ref_voltage;
   pthread_spin_unlock (&I2C_ACCESS);
   return tmp;
 }
