@@ -58,22 +58,37 @@ int main (int argc, char *argv[]) {
   Controller controller (PARA);
   controller.initialize();
 
-  bcm2835_delay(500);
-  std::cout << "Startup process complete! Ready for a flight.\n";
+  //setting scheduling policy of main thread
+  sched_param sp_main;
+  sp_main.sched_priority = 98;
+  sched_setscheduler(0, SCHED_FIFO, &sp_main);
+
+  //force program to RAM
+  mlockall(MCL_CURRENT | MCL_FUTURE);
   
   //spinlock initialization
   if (pthread_spin_init(&I2C_ACCESS, 0)) {
     std::cout << "pthread spinlock initialization failed.\n";
    return 1;
   }
-  terminate = false;
   
   //start collecting sensor data
+  terminate = false;
   pthread_t thread_sensor;
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+  sched_param sp_sensor;
+  sp_sensor.sched_priority = 99;
+  pthread_attr_setschedparam(&attr, &sp_sensor);
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
   if (pthread_create (&thread_sensor, NULL, &Sensor::start, &sensor)) {
     std::cout << "pthread create failed.\n";
     return 1;
   }
+
+  bcm2835_delay(500);
+  std::cout << "Startup process complete! Ready for a flight.\n";
   
   //main loop
   while (controlcycle(sensor, interface, controller, SEN_DATA, INT_DATA));
