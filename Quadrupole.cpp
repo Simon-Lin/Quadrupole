@@ -5,7 +5,7 @@
 #include <bcm2835.h>
 #include <iostream>
 #include <pthread.h>
-
+#include <sys/mman.h>
 
 pthread_spinlock_t I2C_ACCESS;
 bool terminate;
@@ -41,12 +41,12 @@ int main (int argc, char *argv[]) {
   std::cout << "Initializing sensors...\n";
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 50);
-  sensor.initialize();
+  if (!sensor.initialize()) return 1;
 
   std::cout << "Intiailzing network server...\n";
   InterfaceData INT_DATA;
   Interface interface(&INT_DATA);
-  interface.initialize();
+  if (!interface.initialize()) return 1;
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
@@ -56,7 +56,7 @@ int main (int argc, char *argv[]) {
   PARA.yaw_diff = 0;
   PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0.0001;
   Controller controller (PARA);
-  controller.initialize();
+  if (!controller.initialize()) return 1;
 
   //setting scheduling policy of main thread
   sched_param sp_main;

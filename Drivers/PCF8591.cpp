@@ -5,14 +5,14 @@
 PCF8591::PCF8591() {
   addr = PCF8591_DEFAULT_ADDRESS;
   adc_mode = 0;
-  adc_channel = 0;
+  adc_channel = 2;
   dac_on = false;
 }
 
 PCF8591::PCF8591(uint8_t address) {
   addr = address;
   adc_mode = 0;
-  adc_channel = 0;
+  adc_channel = 2;
   dac_on = false;
 }
 

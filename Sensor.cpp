@@ -29,6 +29,8 @@ bool Sensor::initialize () {
     std::cout << "IMU connection test failed! Aborting initialization...\n";
     return 0;
   }
+  IMU.setSleepEnabled(true);
+  bcm2835_delay(100);
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
   IMU.setDLPFMode(MPU6050_DLPF_BW_98);
@@ -79,10 +81,10 @@ void* Sensor::_start() {
   while (!terminate) {
     getMotionData (DATA->acceleration, DATA->speed, DATA->position, DATA->angular_speed, DATA->g_direction);
 
-    //these data are updated once per ten sensor cycle
+    //these data are updated per ten sensor cycle
     if (cycle >= 10) {
       if (TPU_connected) {
-	DATA->pressure = getPressure();
+	DATA->pressure = this->getPressure();
 	DATA->temperature = getTemperature();
       } else {
 	DATA->pressure = NAN;
@@ -144,6 +146,8 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
 
 float Sensor::getPressure() {
   pthread_spin_lock (&I2C_ACCESS);
+  TPU.setControl(BMP085_MODE_PRESSURE_3) ; //taking reading in highest accuracy measurement mode
+  bcm2835_delay( TPU.getMeasureDelayMicroseconds() / 1000 );
   float tmp = TPU.getPressure();
   pthread_spin_unlock (&I2C_ACCESS);
   return tmp;
@@ -151,14 +155,17 @@ float Sensor::getPressure() {
 
 float Sensor::getTemperature() {
   pthread_spin_lock (&I2C_ACCESS);
+  TPU.setControl(BMP085_MODE_TEMPERATURE);
+  bcm2835_delay(5); // wait 5 ms for conversion 
   float tmp = TPU.getTemperatureC();
   pthread_spin_unlock (&I2C_ACCESS);
   return tmp;
 }
 
 float Sensor::getBattVoltage() {
+  ADC.setInputMode (0, 3);
   pthread_spin_lock (&I2C_ACCESS);
-  float tmp = ADC.ADConversion() / ref_voltage;
+  float tmp = ADC.ADConversion() * ref_voltage * 3;
   pthread_spin_unlock (&I2C_ACCESS);
   return tmp;
 }
