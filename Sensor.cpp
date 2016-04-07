@@ -118,18 +118,32 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   gyro.setValue(gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro);
   float dt = (time - time_0) / 1000.0;
-    
+  
+  //==========Kalman Filter============
+  //prediction
+  float dtheta = -gyro_0.norm() * dt * M_PI / 90;
+  accel_0.rotate (dtheta, gyro_0);
+  for (int i = 0; i < 3, i++) {
+    cor_accel[i] = cor_accel[i].rotate (dtheta, gyro);
+    cor_gyro[i]  = cor_gyro[i];
+  }
+
+   //update
+  Vector3D cor_sum;
+  for (int i = 0; i < 3; i++) {
+    cor_sum = cor_accel[i] + cor_accel_ob;
+    accel.x = (cor_accel[i].x * accel.x + cor_accel_ob.x * accel_0.x) / (cor_accel_ob.x + cor_accel)
+  }
+  accel = accel
+
+  //=========Kalman Filter=============
+
+  
   //numerical integration of acceleration
   Vector3D dv = 0.5 * (accel + accel_0);
   velo = velo + dv;
   Vector3D dx = 0.5 * (velo + velo_0);
   pos = pos + dx;
-    
-  //numerical integration of angular velocity
-  float dtheta = -gyro.norm() * dt * M_PI / 90;
-  g_dir.rotate (dtheta, gyro);
-  g_dir = 0.04 / accel.norm() * accel + 0.96 * g_dir;  //apply complementary filter
-  g_dir.normalize();
   
   //initialize next measurement's initial value
   accel_0 = accel;

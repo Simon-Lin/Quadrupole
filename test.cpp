@@ -13,7 +13,8 @@ int main() {
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 50);
   sensor.initialize();
-  //  sensor.gyroCalibrate();
+  sensor.gyroCalibrate();
+  return 0;
   bcm2835_delay(500);
   //  InterfaceData UI_DATA;
   //  Interface UI(&UI_DATA);

@@ -15,8 +15,7 @@ while True:
     g_dir = vector(v_gdir.x, v_gdir.z, v_gdir.y)
     omega = vector(v_omega.x, v_omega.z, v_omega.y)
     g_dir = g_dir.norm()
-    yaw = yaw - v_omega.z*3.1416/180.0
-    
+    yaw = yaw - v_omega.z*3.1416/180.0/30.0    
     normal = vector(0,1,0)
     front = vector(0,0,1)
     front = front.rotate(diff_angle(normal, g_dir), cross(g_dir, normal))

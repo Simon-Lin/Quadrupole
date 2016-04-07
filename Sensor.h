@@ -74,6 +74,12 @@ class Sensor {
   Vector3D pos;
   Vector3D g_dir;
 
+  //eigenvectors of covariance matrix (for Kalman filter)
+  Vector3D[3] cor_accel;
+  Vector3D[3] cor_accel_0;
+  Vector3D[3] cor_gyro;
+  Vector3D[3] cor_gyro_0;
+    
   //Sensors
   MPU6050 IMU;
   BMP085  TPU;
