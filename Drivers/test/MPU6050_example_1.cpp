@@ -53,16 +53,30 @@ int main(int argc, char **argv) {
   
   printf("MPU6050 3-axis acceleromter example program\n");
   I2Cdev::initialize();
-  MPU6050 accelgyro ;
-  int16_t ax, ay, az;
-  int16_t gx, gy, gz;
-  if ( accelgyro.testConnection() ) 
+  
+  MPU6050 IMU;
+  int16_t rax, ray, raz, rgx, rgy, rgz;
+  float ax, ay, az, gx, gy, gz;
+  if ( IMU.testConnection() ) 
     printf("MPU6050 connection test successful\n") ;
   else {
     fprintf( stderr, "MPU6050 connection test failed! something maybe wrong, continuing anyway though ...\n");
     //return 1;
   }
-  accelgyro.initialize();
+  //accelgyro.initialize();
+  IMU.setSleepEnabled(true);
+  bcm2835_delay(100);
+  IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
+  IMU.setRate(0);
+  IMU.setDLPFMode(MPU6050_DLPF_BW_98);
+  IMU.setDHPFMode(MPU6050_DHPF_RESET);
+  IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
+  IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
+  float LSB_accel = 8192;
+  float LSB_gyro  = 65.5;
+  IMU.setSleepEnabled(false);
+  bcm2835_delay(100);
+  
   // use the code below to change accel/gyro offset values
   /*
   printf("Updating internal sensor offsets...\n");
@@ -95,11 +109,17 @@ int main(int argc, char **argv) {
   fgz.open("gz.txt");
   
   printf("\n");
-  printf("  ax  \t  ay  \t  az  \t  gx  \t  gy  \t  gz:\n");
+  printf("    ax    \t    ay    \t    az    \t    gx    \t    gy    \t    gz:\n");
   double timer0 = (double) bcm2835_st_read() * 1E-6;
   while (true) {
-    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-    printf("  %d \t %d \t %d \t %d \t %d \t %d\r", ax, ay, az, gx, gy, gz);
+    IMU.getMotion6(&rax, &ray, &raz, &rgx, &rgy, &rgz);
+    ax = rax / LSB_accel;
+    ay = ray / LSB_accel;
+    az = raz / LSB_accel;
+    gx = rgx / LSB_gyro;
+    gy = rgy / LSB_gyro;
+    gz = rgz / LSB_gyro;
+    printf("  %f \t %f \t %f \t %f \t %f \t %f\r", ax, ay, az, gx, gy, gz);
     fflush(stdout);
     double timer = (double) bcm2835_st_read() * 1E-6;
     timer -= timer0;
@@ -107,8 +127,8 @@ int main(int argc, char **argv) {
     fay << timer << "\t" << ay << endl;
     faz << timer << "\t" << az << endl;
     fgx << timer << "\t" << gx << endl;
-    fgy << timer << "\t" << ax << endl;
-    fgz << timer << "\t" << ax << endl;
+    fgy << timer << "\t" << gy << endl;
+    fgz << timer << "\t" << gz << endl;
     bcm2835_delay(100);
   }
   fax.close();

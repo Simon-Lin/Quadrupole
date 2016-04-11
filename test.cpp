@@ -13,8 +13,8 @@ int main() {
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 50);
   sensor.initialize();
-  sensor.gyroCalibrate();
-  return 0;
+//  sensor.gyroCalibrate();
+//  return 0;
   bcm2835_delay(500);
   //  InterfaceData UI_DATA;
   //  Interface UI(&UI_DATA);
@@ -57,7 +57,7 @@ int main() {
   
   while (1) {
     bcm2835_delay(100);
-
+    
     mvprintw (2, 0, "g_dir: (% f, % f, % f)", SEN_DATA.g_direction.x, SEN_DATA.g_direction.y, SEN_DATA.g_direction.z);
     mvprintw (3, 0, "omega: (% f, % f, % f)", SEN_DATA.angular_speed.x, SEN_DATA.angular_speed.y, SEN_DATA.angular_speed.z);
     mvprintw (4, 0, "accel: (% f, % f, % f)", SEN_DATA.acceleration.x, SEN_DATA.acceleration.y, SEN_DATA.acceleration.z);

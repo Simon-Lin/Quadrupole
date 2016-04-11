@@ -2,6 +2,7 @@
 #define _SENSOR_
 
 #include "Vector3D.h"
+#include "Eigen/Dense"
 #include "Drivers/MPU6050.h"
 #include "Drivers/BMP085.h"
 #include "Drivers/PCF8591.h"
@@ -74,11 +75,11 @@ class Sensor {
   Vector3D pos;
   Vector3D g_dir;
 
-  //eigenvectors of covariance matrix (for Kalman filter)
-  Vector3D[3] cor_accel;
-  Vector3D[3] cor_accel_0;
-  Vector3D[3] cor_gyro;
-  Vector3D[3] cor_gyro_0;
+  //Kalman filter data
+  //state vector (ax, ay, az, gz, gy, gz)
+  Eigen::Matrix<float, 6, 1> state, state_observ, state_predict;
+  Eigen::Matrix<float, 6, 6> cor, cor_predict;
+  Eigen::Matrix<float, 6, 6> noise_predict, noise_observ;
     
   //Sensors
   MPU6050 IMU;

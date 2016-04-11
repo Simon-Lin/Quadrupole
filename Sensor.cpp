@@ -1,4 +1,5 @@
 #include "Sensor.h"
+#include "Eigen/LU"
 #include <iostream>
 #include <math.h>
 
@@ -67,7 +68,23 @@ bool Sensor::initialize () {
   pos.setValue(0, 0, 0);
   g_dir.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   time_0 = bcm2835_st_read() / 1000.0;
-  
+
+  //initailize noise and corvariance matrix
+  state << accel_0.x, accel_0.y, accel_0.z, gyro_0.x, gyro_0.y, gyro_0.z;
+  cor <<
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0;
+  noise_predict <<
+    1e-5, 0, 0, 0, 0, 0,
+    0, 1e-5, 0, 0, 0, 0,
+    0, 0, 1e-5, 0, 0, 0,
+    0, 0, 0, 0.004, 0, 0,
+    0, 0, 0, 0, 0.004, 0,
+    0, 0, 0, 0, 0, 0.004;  
   return 1;
 }
 
@@ -108,36 +125,57 @@ void* Sensor::_start() {
 
 void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &position, Vector3D &angular_speed, Vector3D &g_direction) {
   //obtain data from motion sensor
-  int16_t ax, ay, az, gx, gy, gz;
-
-  pthread_spin_lock (&I2C_ACCESS);
-  IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
-  pthread_spin_unlock (&I2C_ACCESS);
-  
+  float ax, ay, az, gx, gy, gz;
   time = bcm2835_st_read() / 1000.0;
-  accel.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
-  gyro.setValue(gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro);
   float dt = (time - time_0) / 1000.0;
   
   //==========Kalman Filter============
-  //prediction
   float dtheta = -gyro_0.norm() * dt * M_PI / 90;
-  accel_0.rotate (dtheta, gyro_0);
-  for (int i = 0; i < 3, i++) {
-    cor_accel[i] = cor_accel[i].rotate (dtheta, gyro);
-    cor_gyro[i]  = cor_gyro[i];
-  }
+  gyro_0.normalize();
+  float c = cos(dtheta);
+  float s = sin(dtheta);
+  ax = accel_0.x; ay = accel_0.y; az = accel_0.z;
+  gx = gyro_0.x; gy = gyro_0.y; gz = gyro_0.z;
+  float adotg = gx*ax + gy*ay + gz*az;
+  //prediction matrix
+  Eigen::Matrix<float, 6, 6> F;
+  F <<    c+gx*gx*(1-c),  gx*gy*(1-c)-gz*s,  gy*gz*(1-c)+gy*s,  (1-c)*(adotg+gx*ax),     (1-c)*ay*gx+az*s,     (1-c)*az*gx-ay*s,
+       gx*gy*(1-c)+gz*s,     c+gy*gy*(1-c),  gy*gz*(1-c)-gx*s,     (1-c)*ax*gy-az*s,  (1-c)*(adotg+gy*ay),     (1-c)*az*gy+ax*s,
+       gz*gx*(1-c)-gy*s,  gz*gy*(1-c)+gx*s,     c+gz*gz*(1-c),     (1-c)*ax*gz+ay*s,     (1-c)*ay*gz-ax*s,  (1-c)*(adotg+az*gz),
+                      0,                 0,                 0,                    1,                    0,                    0,
+                      0,                 0,                 0,                    0,                    1,                    0,
+                      0,                 0,                 0,                    0,                    0,                    1;
+  //prediction
+  state_predict = F * state;
+  cor_predict   = F * cor * F.transpose() + noise_predict;
 
-   //update
-  Vector3D cor_sum;
-  for (int i = 0; i < 3; i++) {
-    cor_sum = cor_accel[i] + cor_accel_ob;
-    accel.x = (cor_accel[i].x * accel.x + cor_accel_ob.x * accel_0.x) / (cor_accel_ob.x + cor_accel)
-  }
-  accel = accel
-
+  //observation
+  int16_t ax_r, ay_r, az_r, gx_r, gy_r, gz_r;
+  pthread_spin_lock (&I2C_ACCESS);
+  IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
+  pthread_spin_unlock (&I2C_ACCESS);
+  state_observ << ax_r/LSB_accel, ay_r/LSB_accel, az_r/LSB_accel, gx_r/LSB_gyro, gy_r/LSB_gyro, gz_r/LSB_gyro;
+  float omega = sqrt(state_observ[3]*state_observ[3] + state_observ[4]*state_observ[4] + state_observ[5]*state_observ[5]);
+  noise_observ <<
+    (omega+1)*1e-5, 0, 0, 0, 0, 0,
+    0, (1+omega)*1e-5, 0, 0, 0, 0,
+    0, 0, (1+omega)*1e-5, 0, 0, 0,
+    0, 0, 0, 0.004, 0, 0,
+    0, 0, 0, 0, 0.004, 0,
+    0, 0, 0, 0, 0, 0.004;  
+  
+  //update
+  Eigen::Matrix<float, 6, 6> K;
+  K = (cor_predict + noise_observ).inverse();
+  state = cor_predict * K * state_observ  +  noise_observ * K * state_predict;
+  cor = cor_predict * K * noise_observ;
   //=========Kalman Filter=============
-
+  
+  //write filtered results
+  accel.setValue (state[0], state[1], state[2]);
+  gyro.setValue  (state[3], state[4], state[5]);
+  g_dir = accel;
+  g_dir.normalize();
   
   //numerical integration of acceleration
   Vector3D dv = 0.5 * (accel + accel_0);
@@ -395,7 +433,7 @@ void Sensor::IMU_SelfTest () {
 
 void Sensor::fixOffset (float &cal_1, float &cal_0, float &off, float &fix) {
   //offset fixing utility used by IMU_calibration method
-  if (signbit(cal_1) != signbit(cal_0)) {
+  if (std::signbit(cal_1) != std::signbit(cal_0)) {
     if (abs(cal_1) < abs(cal_0)) {
       if (cal_1 > 0) {
         off -= fix;
