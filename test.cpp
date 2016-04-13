@@ -13,10 +13,10 @@ int main() {
   SensorData SEN_DATA;
   Sensor sensor(&SEN_DATA, 15);
   sensor.initialize();
-  sensor.gyroCalibrate();
-  sensor.accelCalibrate();
-  sensor.IMU_GetOffsets();
-  return 0;
+  //  sensor.gyroCalibrate();
+  //  sensor.accelCalibrate();
+  //  sensor.IMU_GetOffsets();
+  //  return 0;
   bcm2835_delay(500);
   //  InterfaceData UI_DATA;
   //  Interface UI(&UI_DATA);

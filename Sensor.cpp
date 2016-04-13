@@ -3,15 +3,15 @@
 #include <iostream>
 #include <math.h>
 
-//plain initializer (only used in testing)
-Sensor::Sensor (float sampling_rate) {
+Sensor::Sensor(float sampling_rate) {
+//plain initializer (only used in testing) Sensor::Sensor (float sampling_rate) {
   DATA = NULL;
   sampling_time = 1000/sampling_rate;
   ref_voltage = 5.0;
 }
 
-//initializer with DATA
 Sensor::Sensor (SensorData *DATA_ref, float sampling_rate) {
+//initializer with DATA Sensor::Sensor (SensorData *DATA_ref, float sampling_rate) {
   DATA = DATA_ref;
   sampling_time = 1000/sampling_rate;
   ref_voltage = 5.0;
@@ -33,12 +33,12 @@ bool Sensor::initialize () {
   IMU.setSleepEnabled(false);
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
-  IMU.setDLPFMode(MPU6050_DLPF_BW_98);
+  IMU.setDLPFMode(MPU6050_DLPF_BW_42);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
   IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
   LSB_accel = 8192;
-  LSB_gyro  = 65.5;
+  LSB_gyro = 65.5;
 
   if(!TPU.testConnection()) {
     std::cout << "TPU connection test failed! Ignoring PTU.\n";
@@ -67,7 +67,7 @@ bool Sensor::initialize () {
   g_dir.setValue(ax/LSB_accel, ay/LSB_accel, az/LSB_accel);
   time_0 = bcm2835_st_read() / 1000.0;
 
-  //initailize noise and corvariance matrix
+  //initailize Kalamn filter
   state << accel_0.x, accel_0.y, accel_0.z, gyro_0.x, gyro_0.y, gyro_0.z;
   cor <<
     0, 0, 0, 0, 0, 0,
@@ -76,13 +76,6 @@ bool Sensor::initialize () {
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0;
-  noise_predict << //1e-5
-    1e-3, 0, 0, 0, 0, 0,
-    0, 1e-3, 0, 0, 0, 0,
-    0, 0, 1e-3, 0, 0, 0,
-    0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 1, 0,
-    0, 0, 0, 0, 0, 1;  
   return 1;
 }
 
@@ -132,52 +125,62 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   gyro_0.normalize();
   float c = cos(dtheta);
   float s = sin(dtheta);
-  ax = accel_0.x; ay = accel_0.y; az = accel_0.z;
+  ax = g_dir.x; ay = g_dir.y; az = g_dir.z;
   gx = gyro_0.x; gy = gyro_0.y; gz = gyro_0.z;
   float adotg = gx*ax + gy*ay + gz*az;
   //prediction matrix
   Eigen::Matrix<float, 6, 6> F;
-  F <<    c+gx*gx*(1-c),  gx*gy*(1-c)-gz*s,  gx*gz*(1-c)+gy*s,  (1-c)*(adotg+gx*ax),     (1-c)*ay*gx+az*s,     (1-c)*az*gx-ay*s,
-       gx*gy*(1-c)+gz*s,     c+gy*gy*(1-c),  gy*gz*(1-c)-gx*s,     (1-c)*ax*gy-az*s,  (1-c)*(adotg+gy*ay),     (1-c)*az*gy+ax*s,
-       gz*gx*(1-c)-gy*s,  gz*gy*(1-c)+gx*s,     c+gz*gz*(1-c),     (1-c)*ax*gz+ay*s,     (1-c)*ay*gz-ax*s,  (1-c)*(adotg+az*gz),
-                      0,                 0,                 0,                    1,                    0,                    0,
-                      0,                 0,                 0,                    0,                    1,                    0,
-                      0,                 0,                 0,                    0,                    0,                    1;
+  F << c+gx*gx*(1-c), gx*gy*(1-c)-gz*s, gx*gz*(1-c)+gy*s, (1-c)*(adotg+gx*ax), (1-c)*ay*gx+az*s, (1-c)*az*gx-ay*s,
+       gx*gy*(1-c)+gz*s, c+gy*gy*(1-c), gy*gz*(1-c)-gx*s, (1-c)*ax*gy-az*s, (1-c)*(adotg+gy*ay), (1-c)*az*gy+ax*s,
+       gz*gx*(1-c)-gy*s, gz*gy*(1-c)+gx*s, c+gz*gz*(1-c), (1-c)*ax*gz+ay*s, (1-c)*ay*gz-ax*s, (1-c)*(adotg+az*gz),
+                      0, 0, 0, 1, 0, 0,
+                      0, 0, 0, 0, 1, 0,
+                      0, 0, 0, 0, 0, 1;
   //prediction
-  accel_0.rotate(dtheta, gyro_0);
-  state_predict << accel_0.x, accel_0.y, accel_0.z, gyro.x, gyro.y, gyro.z;
-  cor_predict   = F * cor * F.transpose() + noise_predict;
+  g_dir.rotate(dtheta, gyro_0);
+  state_predict << g_dir.x, g_dir.y, g_dir.z, gyro.x, gyro.y, gyro.z;
+  float error_dynamic = 5e-4 * gyro_diff * gyro_diff;
+  noise_predict <<
+    3e-2+error_dynamic, 0, 0, 0, 0, 0,
+    0, 3e-2+error_dynamic, 0, 0, 0, 0,
+    0, 0, 3e-2+error_dynamic, 0, 0, 0,
+    0, 0, 0, 3+gyro_diff, 0, 0,
+    0, 0, 0, 0, 3+gyro_diff, 0,
+    0, 0, 0, 0, 0, 3+gyro_diff;
+  cor_predict = F * cor * F.transpose() + noise_predict;
   
   //observation
   int16_t ax_r, ay_r, az_r, gx_r, gy_r, gz_r;
   pthread_spin_lock (&I2C_ACCESS);
   IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
   pthread_spin_unlock (&I2C_ACCESS);
-  state_observ << -ax_r/LSB_accel, -ay_r/LSB_accel, -az_r/LSB_accel, gx_r/LSB_gyro, gy_r/LSB_gyro, gz_r/LSB_gyro;
-  float error_dynamic = 1000*abs(dtheta);
+  accel.setValue(-ax_r/LSB_accel, -ay_r/LSB_accel, -az_r/LSB_accel);
+  g_dir = accel;
+  g_dir.normalize();
+  state_observ << g_dir.x, g_dir.y, g_dir.z, gx_r/LSB_gyro, gy_r/LSB_gyro, gz_r/LSB_gyro;
+  error_dynamic = 5e-4 * (state[3]*state[3] + state[4]*state[4] + state[5]*state[5]);
   noise_observ <<
-    (1+error_dynamic)*1e-3, 0, 0, 0, 0, 0,
-    0, (1+error_dynamic)*1e-3, 0, 0, 0, 0,
-    0, 0, (1+error_dynamic)*1e-3, 0, 0, 0,
-    0, 0, 0, 0.1, 0, 0,
-    0, 0, 0, 0, 0.1, 0,
-    0, 0, 0, 0, 0, 0.1;  
+    3e-3+error_dynamic, 0, 0, 0, 0, 0,
+    0, 3e-3+error_dynamic, 0, 0, 0, 0,
+    0, 0, 3e-3+error_dynamic, 0, 0, 0,
+    0, 0, 0, 3, 0, 0,
+    0, 0, 0, 0, 3, 0,
+    0, 0, 0, 0, 0, 3;
   
   //update
   Eigen::Matrix<float, 6, 6> K;
   K = (cor_predict + noise_observ).inverse();
-  state = cor_predict * K * state_observ  +  noise_observ * K * state_predict;
+  state = cor_predict * K * state_observ + noise_observ * K * state_predict;
   cor = cor_predict * K * noise_observ;
   //=========Kalman Filter=============
 
-  //  std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
-  //  std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n"; 
-  //  std::cout << "====================\n";
+// std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
+// std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
+// std::cout << "====================\n";
   
   //write filtered results
-  accel.setValue (state[0], state[1], state[2]);
-  gyro.setValue  (state[3], state[4], state[5]);
-  g_dir = accel;
+  g_dir.setValue (state[0], state[1], state[2]);
+  gyro.setValue (state[3], state[4], state[5]);
   g_dir.normalize();
   
   //numerical integration of acceleration
@@ -188,6 +191,7 @@ void Sensor::getMotionData (Vector3D &acceleration, Vector3D &speed, Vector3D &p
   
   //initialize next measurement's initial value
   accel_0 = accel;
+  gyro_diff = (gyro - gyro_0).norm();
   gyro_0 = gyro;
   time_0 = time;
   
@@ -211,7 +215,7 @@ float Sensor::getPressure() {
 float Sensor::getTemperature() {
   pthread_spin_lock (&I2C_ACCESS);
   TPU.setControl(BMP085_MODE_TEMPERATURE);
-  bcm2835_delay(5); // wait 5 ms for conversion 
+  bcm2835_delay(5); // wait 5 ms for conversion
   float tmp = TPU.getTemperatureC();
   pthread_spin_unlock (&I2C_ACCESS);
   return tmp;
@@ -273,7 +277,7 @@ void Sensor::accelCalibrate() {
     std::cout << ">" << std::flush;
   }
 
-  std::cout << "  done\n";
+  std::cout << " done\n";
 }
 
 
@@ -323,27 +327,27 @@ void Sensor::gyroCalibrate() {
     std::cout << ">" << std::flush;
   }
   
-  std::cout << "  done\n";
+  std::cout << " done\n";
 }
 
 
 void Sensor::IMU_GetOffsets () {
-  //  std::cout << "Obtaining offsets and gains data from IMU:\n";
+  // std::cout << "Obtaining offsets and gains data from IMU:\n";
   float ax_off, ay_off, az_off, gx_off, gy_off, gz_off, x_gain, y_gain, z_gain;
 
   ax_off = IMU.getXAccelOffset();
   ay_off = IMU.getYAccelOffset();
   az_off = IMU.getZAccelOffset();
-  gx_off = IMU.getXGyroOffset(); 
+  gx_off = IMU.getXGyroOffset();
   gy_off = IMU.getYGyroOffset();
   gz_off = IMU.getZGyroOffset();
   x_gain = IMU.getXFineGain();
   y_gain = IMU.getYFineGain();
   z_gain = IMU.getZFineGain();
 
-  std::cout << "gyroscope offsets (deg/s):   gx: " << gx_off << "   gy: " << gy_off << "   gz: " << gz_off << std::endl;
-  std::cout << "accelerometer offsets (g):   ax: " << ax_off << "   ay: " << ay_off << "   az: " << az_off << std::endl;
-  std::cout << "fine gains:   x:" << x_gain << "   y: " << y_gain << "   z: " << z_gain << std::endl;
+  std::cout << "gyroscope offsets (deg/s): gx: " << gx_off << " gy: " << gy_off << " gz: " << gz_off << std::endl;
+  std::cout << "accelerometer offsets (g): ax: " << ax_off << " ay: " << ay_off << " az: " << az_off << std::endl;
+  std::cout << "fine gains: x:" << x_gain << " y: " << y_gain << " z: " << z_gain << std::endl;
 }
 
 
@@ -385,7 +389,7 @@ void Sensor::IMU_SelfTest () {
   IMU.setGyroYSelfTest(1);
   IMU.setGyroZSelfTest(1);
   bcm2835_delay(500);
-  std::cout << "." << std::flush; 
+  std::cout << "." << std::flush;
   for (int i = 0; i < 20; i++) {
     IMU.getRotation(&x, &y, &z);
     gyro_enabled = gyro_enabled + Vector3D(x, y, z);
@@ -425,8 +429,8 @@ void Sensor::IMU_SelfTest () {
   //display results
   std::cout << "\nSelf-test done. Displaying results:\n";
   std::cout << "===============================================================================\n";
-  std::cout << "gyroscope error        \tgx: " << err_gx << " %     \tgy: " << err_gy << " %     \tgz: " << err_gz << "%\n";
-  std::cout << "accelerometer error    \tax: " << err_ax << " %     \tay: " << err_ay << " %     \taz: " << err_az << "%\n";
+  std::cout << "gyroscope error \tgx: " << err_gx << " % \tgy: " << err_gy << " % \tgz: " << err_gz << "%\n";
+  std::cout << "accelerometer error \tax: " << err_ax << " % \tay: " << err_ay << " % \taz: " << err_az << "%\n";
   std::cout << "(Errors accepeable are 14% for both on specification sheet)\n";
   std::cout << "===============================================================================\n\n";
 }

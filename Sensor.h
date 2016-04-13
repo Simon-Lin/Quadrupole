@@ -68,6 +68,7 @@ class Sensor {
   Vector3D accel_0;
   Vector3D gyro;
   Vector3D gyro_0;
+  float    gyro_diff;
   float    time;
   float    time_0;
   Vector3D velo;
