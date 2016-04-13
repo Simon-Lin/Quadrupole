@@ -64,14 +64,13 @@ int main(int argc, char **argv) {
     //return 1;
   }
   //accelgyro.initialize();
-  IMU.setSleepEnabled(true);
-  bcm2835_delay(100);
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
   IMU.setDLPFMode(MPU6050_DLPF_BW_98);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
   IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
+  printf ("%d  %d\n", IMU.getFullScaleGyroRange(), IMU.getFullScaleAccelRange());
   float LSB_accel = 8192;
   float LSB_gyro  = 65.5;
   IMU.setSleepEnabled(false);

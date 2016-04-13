@@ -11,18 +11,20 @@ bool terminate;
 
 int main() {
   SensorData SEN_DATA;
-  Sensor sensor(&SEN_DATA, 50);
+  Sensor sensor(&SEN_DATA, 15);
   sensor.initialize();
-//  sensor.gyroCalibrate();
-//  return 0;
+  sensor.gyroCalibrate();
+  sensor.accelCalibrate();
+  sensor.IMU_GetOffsets();
+  return 0;
   bcm2835_delay(500);
   //  InterfaceData UI_DATA;
   //  Interface UI(&UI_DATA);
   //  UI.initialize();
 
-  initscr();
+  /*  initscr();
   cbreak();
-  noecho();
+  noecho();*/
 
   //spinlock initialization
   if (pthread_spin_init(&I2C_ACCESS, 0)) {
@@ -58,11 +60,11 @@ int main() {
   while (1) {
     bcm2835_delay(100);
     
-    mvprintw (2, 0, "g_dir: (% f, % f, % f)", SEN_DATA.g_direction.x, SEN_DATA.g_direction.y, SEN_DATA.g_direction.z);
+    /*    mvprintw (2, 0, "g_dir: (% f, % f, % f)", SEN_DATA.g_direction.x, SEN_DATA.g_direction.y, SEN_DATA.g_direction.z);
     mvprintw (3, 0, "omega: (% f, % f, % f)", SEN_DATA.angular_speed.x, SEN_DATA.angular_speed.y, SEN_DATA.angular_speed.z);
     mvprintw (4, 0, "accel: (% f, % f, % f)", SEN_DATA.acceleration.x, SEN_DATA.acceleration.y, SEN_DATA.acceleration.z);
     mvprintw (5, 0, "temp: %fC  pressure: %fpa  batt_v: %fv", SEN_DATA.temperature, SEN_DATA.pressure, SEN_DATA.batt_voltage);
-    refresh();
+    refresh();*/
     
     /*	UI_DATA.g_direction = SEN_DATA.g_direction;
 	UI_DATA.acceleration = SEN_DATA.acceleration;
