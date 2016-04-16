@@ -1,8 +1,10 @@
-#include "Drivers/PCA9685.h"
-#include "Vector3D.h"
-#include <pthread.h>
+#ifndef _CONTROLLER_
+#define _CONTROLLER_
 
-extern pthread_spinlock_t I2C_ACCESS;
+#include "Drivers/PCA9685.h"
+#include "Eigen/Dense"
+#include "Data.h"
+#include <pthread.h>
 
 struct ServoData {
   float UR, UL, DL, DR;
@@ -16,8 +18,8 @@ struct ControlParameters {
 
 class Controller {
  public:
-  Controller();
-  Controller(ControlParameters parameters);
+  Controller(Data *DATA_ref);
+  Controller(Data *DATA_ref, ControlParameters parameters);
   ~Controller();
 
   bool initialize ();
@@ -26,15 +28,17 @@ class Controller {
   void setParameters (ControlParameters parameters);
   
   //auto control methods
-  void control (float thrust, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set);
-  void control_HoldAtt (float z_speed, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set);
-  void control_Hover (float yaw, float yaw_set, Vector3D speed);
+  void control (float thrust, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set);
+  void control_HoldAtt (float z_speed, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set);
+  void control_Hover (float yaw, float yaw_set, Eigen::Vector3f speed);
     
  private:
+  Data *DATA;
+  
   //algorithm and hardware control methods
   void attAlg (float v_z, ServoData &output);
   void yawAlg (float yaw_now, float yaw_set, ServoData &output);
-  void balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &output);
+  void balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_set, ServoData &output);
   void setServo (ServoData input);
   
   //algorithm data & parameters
@@ -44,3 +48,5 @@ class Controller {
 
   PCA9685 servo;
 };
+
+#endif

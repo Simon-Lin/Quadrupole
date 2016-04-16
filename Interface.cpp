@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-Interface::Interface (InterfaceData *DATA_ref) {
+Interface::Interface (Data *DATA_ref) {
   DATA = DATA_ref;
   lost_pack = 0;
 }
@@ -96,7 +96,7 @@ void Interface::update () {
       printf("lost packet number exceeds acceptable value. entering hovering mode.\n");
       DATA->att_hold = true;
       DATA->yaw_set = 0;
-      DATA->g_direction_set.setValue(0,0,-1);
+      DATA->g_direction_set << 0, 0, -1;
     }
   } else {
     lost_pack = 0;
@@ -114,16 +114,16 @@ void Interface::serialize (float in, char *out) {
   memcpy(out, &in, 4);
 }
 
-void Interface::serialize (Vector3D in, char *out) {
-  serialize(in.x, out);
-  serialize(in.y, out+4);
-  serialize(in.z, out+8);
+void Interface::serialize (Eigen::Vector3f in, char *out) {
+  serialize(in[0], out);
+  serialize(in[1], out+4);
+  serialize(in[2], out+8);
 }
 
 float Interface::decode_f (char *in) {
   return *((float*)(void*)(in));
 }
 
-Vector3D Interface::decode_v (char *in) {
-  return Vector3D(decode_f(in), decode_f(in+4), decode_f(in+8));
+Eigen::Vector3f Interface::decode_v (char *in) {
+  return Eigen::Vector3f(decode_f(in), decode_f(in+4), decode_f(in+8));
 }

@@ -1,4 +1,6 @@
 //remote communication class - server side
+#ifndef _INTERFACE_
+#define _INTERFACE_
 
 //port number of server program
 #define PORTNO 13704
@@ -9,22 +11,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "Vector3D.h"
-
-struct InterfaceData {
-  //control signal revieced from user
-  float throttle, yaw_set;
-  Vector3D g_direction_set;
-  bool att_hold, power_off;
-
-  //data passed to the UI display
-  float pressure, temperature, height;
-  Vector3D acceleration, speed, angular_speed, g_direction;
-};
+#include "Data.h"
 
 class Interface {
  public:
-  Interface(InterfaceData *DATA_ref);
+  Interface(Data *DATA_ref);
   ~Interface();
 
   bool initialize();
@@ -32,7 +23,7 @@ class Interface {
   void update();
   
  private:
-  InterfaceData *DATA;
+  Data *DATA;
 
   //socket data
   int sockfd, newsockfd;
@@ -42,7 +33,9 @@ class Interface {
 
   //serialization
   void serialize (float in, char *out);
-  void serialize (Vector3D in, char *out);
+  void serialize (Eigen::Vector3f in, char *out);
   float decode_f (char *in);
-  Vector3D decode_v (char *out);
+  Eigen::Vector3f decode_v (char *out);
 };
+
+#endif

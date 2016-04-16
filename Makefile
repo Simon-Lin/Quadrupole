@@ -2,7 +2,7 @@
 CC = g++
 CFLAGS = -ansi -Wall -O0 -g3
 LDFLAGS = -lbcm2835 -lncurses -lm -lpthread
-OBJ = Sensor.o Vector3D.o Controller.o Interface.o
+OBJ = Sensor.o Controller.o Interface.o
 OBJ_DRIV = ./Drivers/I2Cdev.o ./Drivers/BMP085.o ./Drivers/MPU6050.o ./Drivers/PCA9685.o ./Drivers/PCF8591.o
 
 all: test Quadrupole

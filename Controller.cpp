@@ -4,11 +4,12 @@
 #include <stdio.h>
 
 //default constructor - initialize class with default parameters
-Controller::Controller() {
-  
+Controller::Controller(Data *DATA_ref) {
+  DATA = DATA_ref; 
 }
 
-Controller::Controller(ControlParameters parameters) {
+Controller::Controller(Data *DATA_ref, ControlParameters parameters) {
+  DATA = DATA_ref;
   setParameters(parameters);
 }
 
@@ -41,7 +42,7 @@ void Controller::setParameters(ControlParameters parameters) {
 }
 
 
-void Controller::control (float thrust, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set) {
+void Controller::control (float thrust, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set) {
   ServoData power;
   power.UR = power.UL = power.DR = power.DL = thrust;
   
@@ -54,7 +55,7 @@ void Controller::control (float thrust, float yaw, float yaw_set, Vector3D g_dir
   setServo (power);  
 }
 
-void Controller::control_HoldAtt (float z_speed, float yaw, float yaw_set, Vector3D g_direction, Vector3D g_direction_set) {
+void Controller::control_HoldAtt (float z_speed, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set) {
   ServoData power;
 
   float t = bcm2835_st_read() / 1000000.0;
@@ -73,7 +74,7 @@ void Controller::attAlg (float v_z, ServoData &output) {
   float a_z = (v_z - v_z0) / dt;
   x_z += (v_z + v_z0) * dt / 2.0;
   if (abs(x_z) > x_z_bound) {
-    if (signbit(x_z) ) {
+    if (x_z < 0) {
       x_z = -x_z_bound;
     } else {
       x_z = x_z_bound;
@@ -100,15 +101,15 @@ void Controller::yawAlg (float yaw_now, float yaw_set, ServoData &output) {
 }
 
 
-void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &output) {
+void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_set, ServoData &output) {
   //calculate angle deviation form g_dir_now and g_dir_set
-  float theta = g_dir_set.getAngle (g_dir_now);
+  float theta = acos (g_dir_now.dot(g_dir_set));
 
   //differentation and integration of theta
   float theta_diff = (theta - theta_0) / dt;
   theta_int += (theta + theta_0) * dt / 2.0;
   if (abs(theta_int) > theta_int_bound) {
-    if (signbit(theta_int) ) {
+    if (theta_int < 0) {
       theta_int = -theta_int_bound;
     } else {
       theta_int = theta_int_bound;
@@ -118,24 +119,24 @@ void Controller::balanceAlg (Vector3D g_dir_now, Vector3D g_dir_set, ServoData &
   
   //correction vector formula: (^ stands for unit vector in x-y plane)
   //f = - (c1 theta + c2 dtheta/dt + c3 int(dtheta dt)) ^(g_set - g_now) 
-  Vector3D tmp = g_dir_set - g_dir_now;
-  tmp.z = 0;
+  Eigen::Vector3f tmp = g_dir_set - g_dir_now;
+  tmp[2] = 0;
   tmp.normalize();
-  Vector3D  f_corr = - (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
+  Eigen::Vector3f f_corr = - (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
 
   //convert the correction vector to the power of motors
-  output.UR += f_corr.x + f_corr.y;
-  output.DR += f_corr.x - f_corr.y;
-  output.UL += -f_corr.x + f_corr.y;
-  output.DL += -f_corr.x - f_corr.y;
+  output.UR +=  f_corr[0] + f_corr[1];
+  output.DR +=  f_corr[0] - f_corr[1];
+  output.UL += -f_corr[0] + f_corr[1];
+  output.DL += -f_corr[0] - f_corr[1];
 }
 
 
 void Controller::setServo (ServoData input) {  
-  pthread_spin_lock (&I2C_ACCESS);
+  pthread_spin_lock (&(DATA->I2C_ACCESS));
   servo.setPWM (0, input.UR);
   servo.setPWM (1, input.UL);
   servo.setPWM (2, input.DL);
   servo.setPWM (3, input.DR);
-  pthread_spin_unlock (&I2C_ACCESS);
+  pthread_spin_unlock (&(DATA->I2C_ACCESS));
 }

@@ -1,4 +1,3 @@
-#include "Vector3D.h"
 #include "Sensor.h"
 #include "Interface.h"
 #include <iostream>
@@ -6,12 +5,9 @@
 #include <ncurses.h>
 #include <sys/mman.h>
 
-pthread_spinlock_t I2C_ACCESS;
-bool terminate;
-
 int main() {
-  SensorData SEN_DATA;
-  Sensor sensor(&SEN_DATA, 15);
+  Data DATA;
+  Sensor sensor(&DATA, 10);
   sensor.initialize();
   //  sensor.gyroCalibrate();
   //  sensor.accelCalibrate();
@@ -22,12 +18,13 @@ int main() {
   //  Interface UI(&UI_DATA);
   //  UI.initialize();
 
-  /*  initscr();
+  initscr();
   cbreak();
-  noecho();*/
+  noecho();
+  nodelay(stdscr, TRUE);
 
   //spinlock initialization
-  if (pthread_spin_init(&I2C_ACCESS, 0)) {
+  if (pthread_spin_init(&(DATA.I2C_ACCESS), 0)) {
     std::cout << "pthread spinlock initialization failed.\n";
    return 1;
   }
@@ -41,7 +38,7 @@ int main() {
   mlockall(MCL_CURRENT | MCL_FUTURE);
 
   //start sersor
-  terminate = false;
+  DATA.terminate = false;
   pthread_t thread_sensor;
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -57,25 +54,26 @@ int main() {
 
   bcm2835_delay(500);
   
-  while (1) {
+  while (getch() == ERR) {
     bcm2835_delay(100);
     
-    /*    mvprintw (2, 0, "g_dir: (% f, % f, % f)", SEN_DATA.g_direction.x, SEN_DATA.g_direction.y, SEN_DATA.g_direction.z);
-    mvprintw (3, 0, "omega: (% f, % f, % f)", SEN_DATA.angular_speed.x, SEN_DATA.angular_speed.y, SEN_DATA.angular_speed.z);
-    mvprintw (4, 0, "accel: (% f, % f, % f)", SEN_DATA.acceleration.x, SEN_DATA.acceleration.y, SEN_DATA.acceleration.z);
-    mvprintw (5, 0, "temp: %fC  pressure: %fpa  batt_v: %fv", SEN_DATA.temperature, SEN_DATA.pressure, SEN_DATA.batt_voltage);
-    refresh();*/
+    mvprintw (2, 0, "g_dir: (% f, % f, % f)", DATA.g_direction[0], DATA.g_direction[1], DATA.g_direction[2]);
+    mvprintw (3, 0, "omega: (% f, % f, % f)", DATA.angular_speed[0], DATA.angular_speed[1], DATA.angular_speed[2]);
+    mvprintw (4, 0, "accel: (% f, % f, % f)", DATA.acceleration[0], DATA.acceleration[1], DATA.acceleration[2]);
+    mvprintw (5, 0, "temp: %fC  pressure: %fpa  batt_v: %fv", DATA.temperature, DATA.pressure, DATA.batt_voltage);
+    refresh();
     
-    /*	UI_DATA.g_direction = SEN_DATA.g_direction;
-	UI_DATA.acceleration = SEN_DATA.acceleration;
-	UI_DATA.speed = SEN_DATA.speed;
-	UI_DATA.angular_speed = SEN_DATA.angular_speed;
+    /*	UI_DATA.g_direction = DATA.g_direction;
+	UI_DATA.acceleration = DATA.acceleration;
+	UI_DATA.speed = DATA.speed;
+	UI_DATA.angular_speed = DATA.angular_speed;
 	UI.update();*/
   }
-  terminate = true;
+  DATA.terminate = true;
 
   pthread_join (thread_sensor, NULL);
-  pthread_spin_destroy (&I2C_ACCESS);
-  
+  pthread_spin_destroy (&(DATA.I2C_ACCESS));
+
+  endwin();
   return 0;
 }
