@@ -69,6 +69,12 @@ bool Sensor::initialize () {
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0;
+
+  //initialize sensor data
+  DATA->acceleration << 0, 0, 0;
+  DATA->temperature = 0;
+  DATA->altitute  = 0;
+  DATA->batt_voltage = 0;
   return 1;
 }
 
@@ -203,7 +209,7 @@ float Sensor::getTemperature() {
 }
 
 float Sensor::getBattVoltage() {
-  ADC.setInputMode (0, 3);
+  ADC.setInputMode (0, 0);
   pthread_spin_lock (&(DATA->I2C_ACCESS));
   float tmp = ADC.ADConversion() * ref_voltage * 3;
   pthread_spin_unlock (&(DATA->I2C_ACCESS));

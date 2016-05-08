@@ -18,7 +18,7 @@ bool Interface::initialize() {
   //initailze socket
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     perror("cannot open socket");
-    return 1;
+    return 0;
   }
 
   bzero((char*) &serv_addr, sizeof(serv_addr));
@@ -28,7 +28,7 @@ bool Interface::initialize() {
 
   if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
     perror("socket binding failed");
-    return 1;
+    return 0;
   }
 
   //waiting initialization connection from client side
@@ -38,30 +38,30 @@ bool Interface::initialize() {
   char tmpbuf[5] = {0};
   if ((recvfrom(sockfd, tmpbuf, 5, 0, (struct sockaddr*)&cli_addr, &clilen)) < 0) {
     perror("revieving data failed");
-    return 1;
-  }
+    return 0;
+  }  
   if (strcmp(tmpbuf, "QUAD")) {
     printf("WRONG connection from the client side.\n");
-    return 1;
+    return 0;
   }
   //send ACK signal
   if (connect(sockfd, (struct sockaddr*)&cli_addr, clilen) < 0) {
     perror("error connecting client");
-    return 1;
+    return 0;
   }
   if (send(sockfd, tmpbuf, 5, 0) < 0) {
     perror("sending to client failed");
-    return 1;
+    return 0;
   }
 
   //initialization complete, setting socket to non-blocking
   if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) | O_NONBLOCK)) {
     perror("setting socket to non-blocking failed");
-    return 1;
+    return 0;
   }
   
   printf ("connection established. socket initialization complete.\n");
-  return 0;
+  return 1;
 }
 
 
@@ -69,7 +69,7 @@ void Interface::update () {
   //encode display data
   serialize (DATA->pressure, buffer);
   serialize (DATA->temperature, buffer+4);
-  serialize (DATA->height, buffer+8);
+  serialize (DATA->altitute, buffer+8);
   serialize (DATA->acceleration, buffer+12);
   serialize (DATA->speed, buffer+24);
   serialize (DATA->angular_speed, buffer+36);

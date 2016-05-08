@@ -22,6 +22,7 @@ bool Controller::initialize() {
   x_z = 0;
   t0 = bcm2835_st_read() / 1000000.0;
   servo.initialize();
+  servo.set_PWM_Frequency(50);
   return 1;
 }
 

@@ -39,13 +39,16 @@ int main (int argc, char *argv[]) {
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
-  PARA.bal_lin = -1;
-  PARA.bal_diff = PARA.bal_int = 0.0001;
-  PARA.yaw_lin = -1;
+  PARA.bal_lin = -0.0003;
+  PARA.bal_diff = 0.00018;
+  PARA.bal_int = -0.00001;
+  PARA.yaw_lin = 0.00001;
   PARA.yaw_diff = 0;
   PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0.0001;
   Controller controller (&DATA, PARA);
-  if (!controller.initialize()) return 1;
+  if (!controller.initialize()) {
+    return 1;
+  }
 
   //setting scheduling policy of main thread
   sched_param sp_main;
@@ -72,12 +75,12 @@ int main (int argc, char *argv[]) {
   pthread_attr_setschedparam(&attr, &sp_sensor);
   pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
   if (pthread_create (&thread_sensor, NULL, &Sensor::start, &sensor)) {
-    std::cout << "pthread create failed.\n";
+    std::cout << "pthread create failed.\n" << std::flush;
     return 1;
   }
 
   bcm2835_delay(500);
-  std::cout << "Startup process complete! Ready for a flight.\n";
+  std::cout << "Startup process complete! Ready for a flight.\n" << std::flush;
   
   //main loop
   while (controlcycle(sensor, interface, controller, DATA));
