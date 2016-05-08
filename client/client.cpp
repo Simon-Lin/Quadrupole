@@ -199,13 +199,13 @@ int main(int argc, char *argv[]) {
 
     //get input
     Gamepad_processEvents();
-    throttle = -js->axisStates[1];
+    throttle = 1 - js->axisStates[1];
     yaw_set = js->axisStates[0];
-    g_dir_set.x = js->axisStates[2];
-    g_dir_set.y = -js->axisStates[3];
+    g_dir_set.x = js->axisStates[3];
+    g_dir_set.y = -js->axisStates[4];
     g_dir_set.z = sqrt(1 - g_dir_set.x*g_dir_set.x - g_dir_set.y*g_dir_set.y);
     //att_hold
-    if (js->buttonStates[16]) {
+    if (js->buttonStates[8]) {
       if(!att_hold_pressed) {
 	    att_hold = att_hold ? false : true;
 	    att_hold_pressed = true;

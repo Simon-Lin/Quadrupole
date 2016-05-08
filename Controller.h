@@ -45,6 +45,7 @@ class Controller {
   ControlParameters para;
   float theta_0, yaw_0, v_z0, t0, dt;
   float theta_int, x_z, theta_int_bound, x_z_bound;
+  float PWM_freq, PWM_period, max_duty_cycle, min_duty_cycle, duty_range;
 
   PCA9685 servo;
 };

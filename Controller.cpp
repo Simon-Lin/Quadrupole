@@ -5,12 +5,18 @@
 
 //default constructor - initialize class with default parameters
 Controller::Controller(Data *DATA_ref) {
-  DATA = DATA_ref; 
+  DATA = DATA_ref;
 }
 
 Controller::Controller(Data *DATA_ref, ControlParameters parameters) {
   DATA = DATA_ref;
   setParameters(parameters);
+  PWM_freq = 100;
+  PWM_period = 1000 / PWM_freq;
+  // throttle range: 1100(min) - 1900(max) us
+  min_duty_cycle = 1.1 / PWM_period;
+  max_duty_cycle = 1.9 / PWM_period;
+  duty_range = max_duty_cycle - min_duty_cycle;
 }
 
 Controller::~Controller() {
@@ -22,7 +28,15 @@ bool Controller::initialize() {
   x_z = 0;
   t0 = bcm2835_st_read() / 1000000.0;
   servo.initialize();
-  servo.set_PWM_Frequency(50);
+  servo.set_PWM_Frequency(PWM_freq);
+  
+  printf ("Preparing to intialize ESCs, please turn the power of ESCs on.\n");
+  ServoData power;
+  power.UR = power.UL = power.DR = power.DL = 0;
+  setServo(power);
+  bcm2835_delay(5000);
+  printf ("ESC initialization complete.\n");
+  
   return 1;
 }
 
@@ -133,11 +147,11 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
 }
 
 
-void Controller::setServo (ServoData input) {  
+void Controller::setServo (ServoData input) {
   pthread_spin_lock (&(DATA->I2C_ACCESS));
-  servo.setPWM (0, input.UR);
-  servo.setPWM (1, input.UL);
-  servo.setPWM (2, input.DL);
-  servo.setPWM (3, input.DR);
+  servo.setPWM (0, min_duty_cycle + input.UR * duty_range);
+  servo.setPWM (1, min_duty_cycle + input.UL * duty_range);
+  servo.setPWM (2, min_duty_cycle + input.DL * duty_range);
+  servo.setPWM (3, min_duty_cycle + input.DR * duty_range);
   pthread_spin_unlock (&(DATA->I2C_ACCESS));
 }
