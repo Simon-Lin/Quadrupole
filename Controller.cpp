@@ -52,14 +52,14 @@ void Controller::setParameters(ControlParameters parameters) {
   para.att_int = parameters.att_int;
 
   //set boundary values to integrated results
-  theta_int_bound = abs(1/para.bal_int);
-  x_z_bound = abs(1/para.att_int);
+  theta_int_bound = 0.2;
+  x_z_bound = 0.2;
 }
 
 
 void Controller::control (float thrust, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set) {
   ServoData power;
-  power.UR = power.UL = power.DR = power.DL = thrust;
+  power.UR = power.UL = power.DR = power.DL = thrust * 0.8;
   
   float t = bcm2835_st_read() / 1000000.0;
   dt = t - t0;

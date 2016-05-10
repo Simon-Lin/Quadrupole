@@ -48,6 +48,19 @@ int main(int argc, char *argv[]) {
   }
   printf("Quadrupole client side ver 0.1\n");
 
+
+  //check for joystick
+  Gamepad_init();
+  Gamepad_detectDevices();
+  Gamepad_device *js = NULL;
+  if (Gamepad_numDevices() > 0) {
+    js = Gamepad_deviceAtIndex(0);
+    printf("joystick: %s detected.", js->description);
+  } else {
+    printf("no joysticks detected. exiting...");
+    return 1;
+  }
+  
   //socket initialization
   int sockfd;
   sockaddr_in serv_addr, client_addr;
@@ -140,22 +153,6 @@ int main(int argc, char *argv[]) {
   mvchgat (0, 0, -1, A_STANDOUT, 0, NULL);
   mvchgat (row_max-2, 0, -1, A_STANDOUT, 0, NULL);
   refresh ();
-
-  //check for joystick
-  Gamepad_init();
-  Gamepad_detectDevices();
-  Gamepad_device *js = NULL;
-  if (Gamepad_numDevices() > 0) {
-    js = Gamepad_deviceAtIndex(0);
-    mvprintw(row_max-1, 0, "joystick: %s detected", js->description);
-    refresh();
-  } else {
-    mvprintw(row_max-1, 0, "no joysticks detected. exiting...");
-    refresh();
-    getch();
-    endwin();
-    return 1;
-    }
   
   //display data
   float pressure, temp, height;
@@ -167,9 +164,12 @@ int main(int argc, char *argv[]) {
   bool exit = false;	
   //inner processing
   float roll, pitch;
+  bool startup_lock = false;
   bool att_hold_pressed = false;
   bool exit_pressed = false;
   bool exit_check = false;
+
+  mvprintw(row_max-1, 0, "Ready for flight. Press START to unlock.");
   
   //main loop
   while (true) {
@@ -186,23 +186,24 @@ int main(int argc, char *argv[]) {
       g_dir = decode_v(buffer+48);
       roll = asin (g_dir.y);
       pitch = asin (g_dir.x);
-    }
       
-    //print on screen
-    mvprintw (4, 2, "roll: % f   pitch: % f", roll, pitch);
-    mvprintw (6, 2, "angular speed: (% f, % f, % f)", omega.x, omega.y, omega.z);
-    mvprintw (9, 2, "velocity: (% f, % f, % f)", speed.x, speed.y, speed.z);
-    mvprintw (11, 2, "acceleration: (% f, % f, % f)", accel.x, accel.y, accel.z);
-    mvprintw (13, 2, "height: % f", height);
-    mvprintw (16, 2, "tempreature: % f   pressure: % f", temp, pressure);
-    refresh();
+      //print on screen
+      mvprintw (4, 2, "roll: % f   pitch: % f", roll, pitch);
+      mvprintw (6, 2, "angular speed: (% f, % f, % f)", omega.x, omega.y, omega.z);
+      mvprintw (9, 2, "velocity: (% f, % f, % f)", speed.x, speed.y, speed.z);
+      mvprintw (11, 2, "acceleration: (% f, % f, % f)", accel.x, accel.y, accel.z);
+      mvprintw (13, 2, "height: % f", height);
+      mvprintw (16, 2, "tempreature: % f   pressure: % f", temp, pressure);
+      refresh();
+    }
 
     //get input
     Gamepad_processEvents();
     throttle = 1 - js->axisStates[1];
     yaw_set = js->axisStates[0];
-    g_dir_set.x = js->axisStates[3];
-    g_dir_set.y = -js->axisStates[4];
+    //max tilt angle: 30 degrees
+    g_dir_set.x =  0.5 * js->axisStates[3];
+    g_dir_set.y = -0.5 * js->axisStates[4];
     g_dir_set.z = sqrt(1 - g_dir_set.x*g_dir_set.x - g_dir_set.y*g_dir_set.y);
     //att_hold
     if (js->buttonStates[8]) {
@@ -213,11 +214,17 @@ int main(int argc, char *argv[]) {
     } else {
       att_hold_pressed = false;
     }
-    //exit
+    //exit and startup
     if (js->buttonStates[9]) {
-      if (!exit_pressed) {
+       if (!exit_pressed) {
         if (exit_check) {
-      	  exit = true;
+	  if (!startup_lock) {
+	    exit = startup_lock = true;
+	    mvprintw(row_max-1, 0, "                                          ");
+	  } else {
+	    startup_lock = false;
+	    exit = true;
+	  }
         } else {
           exit_pressed = true;
           mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
@@ -245,10 +252,11 @@ int main(int argc, char *argv[]) {
     serialize (g_dir_set, buffer+8);
     buffer[20] = 0;
     if (att_hold) buffer[20] += 1;
-	if (exit) buffer[20] += (1 << 4);
+    if (exit) buffer[20] += (1 << 4);
     send (sockfd, buffer, 21, 0);
-    
-    if (exit) {
+
+    if (exit && startup_lock) exit = false;
+    if (exit == true && startup_lock == false) {
       break;
     } else {
       usleep(DELAY_MILLISEC * 1000);

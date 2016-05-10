@@ -32,10 +32,8 @@ int main (int argc, char *argv[]) {
   Data DATA;
   Sensor sensor(&DATA, 50);
   if (!sensor.initialize()) return 1;
-
-  std::cout << "Intiailzing network server...\n";
-  Interface interface(&DATA);
-  if (!interface.initialize()) return 1;
+  sensor.accelCalibrate();
+  sensor.gyroCalibrate();
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
@@ -50,6 +48,11 @@ int main (int argc, char *argv[]) {
     return 1;
   }
 
+  std::cout << "Intiailzing network server...\n";
+  Interface interface(&DATA);
+  if (!interface.initialize()) return 1;
+
+  
   //setting scheduling policy of main thread
   sched_param sp_main;
   sp_main.sched_priority = 98;
@@ -80,7 +83,9 @@ int main (int argc, char *argv[]) {
   }
 
   bcm2835_delay(500);
-  std::cout << "Startup process complete! Ready for a flight.\n" << std::flush;
+  std::cout << "Startup process complete! Waiting for UNLOCK signal...\n";
+  interface.startupLock();
+  std::cout << "UNLOCK recieved!\n" << std::flush;
   
   //main loop
   while (controlcycle(sensor, interface, controller, DATA));

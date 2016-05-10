@@ -19,6 +19,7 @@ class Interface {
   ~Interface();
 
   bool initialize();
+  void startupLock();
   void start(); // Used with OpenMP parallellism feature. not realized for now.
   void update();
   

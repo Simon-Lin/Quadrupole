@@ -64,6 +64,12 @@ bool Interface::initialize() {
   return 1;
 }
 
+void Interface::startupLock () {
+  while (!DATA->poweroff) {
+    bcm2835_delay (100);
+    update ();
+  }
+}
 
 void Interface::update () {
   //encode display data
