@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <bcm2835.h>
 
 Interface::Interface (Data *DATA_ref) {
   DATA = DATA_ref;
@@ -65,7 +66,7 @@ bool Interface::initialize() {
 }
 
 void Interface::startupLock () {
-  while (!DATA->poweroff) {
+  while (!DATA->power_off) {
     bcm2835_delay (100);
     update ();
   }

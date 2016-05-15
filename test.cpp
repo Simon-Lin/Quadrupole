@@ -1,5 +1,6 @@
 #include "Sensor.h"
 #include "Interface.h"
+#include "Controller.h"
 #include <iostream>
 #include <pthread.h>
 #include <ncurses.h>
@@ -7,6 +8,13 @@
 
 int main() {
   Data DATA;
+
+  //spinlock initialization
+  if (pthread_spin_init(&(DATA.I2C_ACCESS), 0)) {
+    std::cout << "pthread spinlock initialization failed.\n";
+   return 1;
+  }
+
   Sensor sensor(&DATA, 10);
   sensor.initialize();
   //  sensor.gyroCalibrate();
@@ -14,6 +22,8 @@ int main() {
   //  sensor.IMU_GetOffsets();
   //  return 0;
   bcm2835_delay(500);
+  Controller controller (&DATA);
+  controller.initialize();
   //  InterfaceData UI_DATA;
   //  Interface UI(&UI_DATA);
   //  UI.initialize();
@@ -22,12 +32,6 @@ int main() {
   cbreak();
   noecho();
   nodelay(stdscr, TRUE);
-
-  //spinlock initialization
-  if (pthread_spin_init(&(DATA.I2C_ACCESS), 0)) {
-    std::cout << "pthread spinlock initialization failed.\n";
-   return 1;
-  }
 
   //RT priority of main thread
   sched_param sp_main;
@@ -52,10 +56,22 @@ int main() {
     return 1;
   }
 
+  ServoData XD;
+  double power = 0;
   bcm2835_delay(500);
   
   while (getch() == ERR) {
     bcm2835_delay(100);
+
+    if (power < 1) {
+      power += 0.01;
+    } else {
+      power = 0;
+    }
+
+    XD.UL = XD.DL = XD.DR = XD.UR = power;
+    mvprintw (7, 0, "Servo: % f, % f, % f, % f", XD.UL, XD.UR, XD.DL, XD.DR);
+    controller.setServo(XD);
     
     mvprintw (2, 0, "g_dir: (% f, % f, % f)", DATA.g_direction[0], DATA.g_direction[1], DATA.g_direction[2]);
     mvprintw (3, 0, "omega: (% f, % f, % f)", DATA.angular_speed[0], DATA.angular_speed[1], DATA.angular_speed[2]);

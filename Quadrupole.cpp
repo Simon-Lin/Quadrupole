@@ -12,6 +12,7 @@ bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller,
   interface.update();
     
   if (DATA.att_hold) {
+    std::cout << "ATTHOLD   ";
     controller.control_HoldAtt (DATA.speed[2], DATA.angular_speed[2], DATA.yaw_set, DATA.g_direction, DATA.g_direction_set);
   } else {
     controller.control (DATA.throttle, DATA.angular_speed[2], DATA.yaw_set, DATA.g_direction, DATA.g_direction_set);  
@@ -29,17 +30,18 @@ int main (int argc, char *argv[]) {
   system("clear");
   std::cout << "Quadrupole controller side ver 0.1\n";
   std::cout << "Initializing sensors...\n";
-  Data DATA;
+
+  Data DATA;  
   Sensor sensor(&DATA, 50);
   if (!sensor.initialize()) return 1;
-  sensor.accelCalibrate();
-  sensor.gyroCalibrate();
+  //  sensor.accelCalibrate();
+  //sensor.gyroCalibrate();
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
-  PARA.bal_lin = -0.0003;
-  PARA.bal_diff = 0.00018;
-  PARA.bal_int = -0.00001;
+  PARA.bal_lin = 0.005;
+  PARA.bal_diff = 0.000;
+  PARA.bal_int = 0.000;
   PARA.yaw_lin = 0.00001;
   PARA.yaw_diff = 0;
   PARA.att_con = PARA.att_lin = PARA.att_diff = PARA.att_int = 0.0001;
@@ -60,7 +62,7 @@ int main (int argc, char *argv[]) {
 
   //force program to RAM
   mlockall(MCL_CURRENT | MCL_FUTURE);
-  
+
   //spinlock initialization
   if (pthread_spin_init(&(DATA.I2C_ACCESS), 0)) {
     std::cout << "pthread spinlock initialization failed.\n";

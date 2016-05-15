@@ -6,12 +6,18 @@
 //default constructor - initialize class with default parameters
 Controller::Controller(Data *DATA_ref) {
   DATA = DATA_ref;
+  PWM_freq = 200;
+  PWM_period = 1000 / PWM_freq;
+  // throttle range: 1100(min) - 1900(max) us
+  min_duty_cycle = 1.1 / PWM_period;
+  max_duty_cycle = 1.9 / PWM_period;
+  duty_range = max_duty_cycle - min_duty_cycle;
 }
 
 Controller::Controller(Data *DATA_ref, ControlParameters parameters) {
   DATA = DATA_ref;
   setParameters(parameters);
-  PWM_freq = 100;
+  PWM_freq = 200;
   PWM_period = 1000 / PWM_freq;
   // throttle range: 1100(min) - 1900(max) us
   min_duty_cycle = 1.1 / PWM_period;
@@ -27,8 +33,8 @@ bool Controller::initialize() {
   theta_int = 0;
   x_z = 0;
   t0 = bcm2835_st_read() / 1000000.0;
-  servo.initialize();
   servo.set_PWM_Frequency(PWM_freq);
+  servo.initialize();
   
   printf ("Preparing to intialize ESCs, please turn the power of ESCs on.\n");
   ServoData power;
@@ -52,8 +58,8 @@ void Controller::setParameters(ControlParameters parameters) {
   para.att_int = parameters.att_int;
 
   //set boundary values to integrated results
-  theta_int_bound = 0.2;
-  x_z_bound = 0.2;
+  theta_int_bound = 0.2 / para.bal_int;
+  x_z_bound = 0.2 / para.att_int;
 }
 
 
@@ -119,10 +125,12 @@ void Controller::yawAlg (float yaw_now, float yaw_set, ServoData &output) {
 void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_set, ServoData &output) {
   //calculate angle deviation form g_dir_now and g_dir_set
   float theta = acos (g_dir_now.dot(g_dir_set));
-
+  
   //differentation and integration of theta
   float theta_diff = (theta - theta_0) / dt;
   theta_int += (theta + theta_0) * dt / 2.0;
+
+  printf ("%+f===%+f===%+f===", theta, theta_diff, theta_int);
   if (abs(theta_int) > theta_int_bound) {
     if (theta_int < 0) {
       theta_int = -theta_int_bound;
@@ -148,6 +156,8 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
 
 
 void Controller::setServo (ServoData input) {
+  printf ("% f  % f  % f  % f\n", input.UR, input.UL, input.DL, input.DR);
+  fflush(stdout);
   pthread_spin_lock (&(DATA->I2C_ACCESS));
   servo.setPWM (0, min_duty_cycle + input.UR * duty_range);
   servo.setPWM (1, min_duty_cycle + input.UL * duty_range);

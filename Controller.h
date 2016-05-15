@@ -31,7 +31,9 @@ class Controller {
   void control (float thrust, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set);
   void control_HoldAtt (float z_speed, float yaw, float yaw_set, Eigen::Vector3f g_direction, Eigen::Vector3f g_direction_set);
   void control_Hover (float yaw, float yaw_set, Eigen::Vector3f speed);
-    
+
+  void setServo (ServoData input);
+  
  private:
   Data *DATA;
   
@@ -39,7 +41,6 @@ class Controller {
   void attAlg (float v_z, ServoData &output);
   void yawAlg (float yaw_now, float yaw_set, ServoData &output);
   void balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_set, ServoData &output);
-  void setServo (ServoData input);
   
   //algorithm data & parameters
   ControlParameters para;

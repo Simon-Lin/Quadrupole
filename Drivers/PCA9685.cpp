@@ -17,7 +17,6 @@ void PCA9685::initialize() {
 	//enable register Auto-increment
 	I2Cdev::writeBit(devAddr, PCA9685_MODE1, 5, 1);
 	//initialize PWM values
-	I2Cdev::writeByte(devAddr, PCA9685_PRESCALE, 30);
 	for (int i = 0; i <16; i++) {
 		LED_delay[i] = 0;
 		LED_duty_cycle[i] = 0;
