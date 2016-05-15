@@ -55,9 +55,9 @@ int main(int argc, char *argv[]) {
   Gamepad_device *js = NULL;
   if (Gamepad_numDevices() > 0) {
     js = Gamepad_deviceAtIndex(0);
-    printf("joystick: %s detected.", js->description);
+    printf("joystick: %s detected.\n", js->description);
   } else {
-    printf("no joysticks detected. exiting...");
+    printf("no joysticks detected. exiting...\n");
     return 1;
   }
   
@@ -184,65 +184,76 @@ int main(int argc, char *argv[]) {
       speed = decode_v(buffer+24);
       omega = decode_v(buffer+36);
       g_dir = decode_v(buffer+48);
-      roll = asin (g_dir.y);
-      pitch = asin (g_dir.x);
+      roll = asin (g_dir.y) * 180 / M_PI;
+      pitch = asin (g_dir.x) * 180 / M_PI;
       
       //print on screen
       mvprintw (4, 2, "roll: % f   pitch: % f", roll, pitch);
-      mvprintw (6, 2, "angular speed: (% f, % f, % f)", omega.x, omega.y, omega.z);
-      mvprintw (9, 2, "velocity: (% f, % f, % f)", speed.x, speed.y, speed.z);
-      mvprintw (11, 2, "acceleration: (% f, % f, % f)", accel.x, accel.y, accel.z);
-      mvprintw (13, 2, "height: % f", height);
-      mvprintw (16, 2, "tempreature: % f   pressure: % f", temp, pressure);
-      refresh();
+      mvprintw (5, 2, "angular speed: (% f, % f, % f)", omega.x, omega.y, omega.z);
+      mvprintw (6, 2, "velocity: (% f, % f, % f)", speed.x, speed.y, speed.z);
+      mvprintw (7, 2, "acceleration: (% f, % f, % f)", accel.x, accel.y, accel.z);
+      mvprintw (9, 2, "height: % f", height);
+      mvprintw (10, 2, "tempreature: % f   pressure: % f", temp, pressure);
     }
 
     //get input
     Gamepad_processEvents();
-    throttle = 1 - js->axisStates[1];
+    throttle = 0.5 * (1 - js->axisStates[1]);
     yaw_set = js->axisStates[0];
     //max tilt angle: 30 degrees
     g_dir_set.x =  0.5 * js->axisStates[3];
     g_dir_set.y = -0.5 * js->axisStates[4];
     g_dir_set.z = sqrt(1 - g_dir_set.x*g_dir_set.x - g_dir_set.y*g_dir_set.y);
+    
+    //print on screen
+    mvprintw (13, 2, "input value:");
+    mvprintw (14, 2, "throttle: % f, yaw_set: % f, roll_set: % f, pitch_set: % f", throttle, yaw_set, asin(g_dir_set.x)*180/M_PI, asin(g_dir_set.y)*180/M_PI);
+    
     //att_hold
     if (js->buttonStates[8]) {
-      if(!att_hold_pressed) {
-	    att_hold = att_hold ? false : true;
-	    att_hold_pressed = true;
-      }
+      att_hold_pressed = true;
     } else {
-      att_hold_pressed = false;
+      if (att_hold_pressed) {
+        att_hold = att_hold ? false : true;
+        att_hold_pressed = false;
+      }
     }
+    
+    if(att_hold) {
+    mvprintw (15, 2, "ATT_HOLD = ON ");
+    } else {
+    mvprintw (15, 2, "ATT_HOLD = OFF");
+    }
+    refresh();
+    
     //exit and startup
     if (js->buttonStates[9]) {
-       if (!exit_pressed) {
-        if (exit_check) {
-	  if (!startup_lock) {
-	    exit = startup_lock = true;
-	    mvprintw(row_max-1, 0, "                                          ");
-	  } else {
-	    startup_lock = false;
-	    exit = true;
-	  }
-        } else {
-          exit_pressed = true;
-          mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
-          refresh();
-        }
+      if (!exit_pressed) {
+	exit_pressed = true;
       }
     } else {
       if (exit_pressed) {
-        exit_pressed = false;
-        exit_check = true;
+	if (!startup_lock) {
+	  exit = startup_lock = true;
+	  mvprintw(row_max-1, 0, "                                          ");
+	} else if (exit_check) {
+	  startup_lock = false;
+	  exit = true;
+	} else {
+	  exit_check = true;
+ 	  mvprintw(row_max-1, 0, "press ENTER again to exit, BACK to cancel.");
+	  refresh();
+	}
+	exit_pressed = false;
       }
     }
+    
     //cancel
     if (js->buttonStates[10]) {
       if (exit_check) {
-		mvprintw(row_max-1, 0, "cancelled                                 ");
-		refresh();
-		exit_check = false;
+	mvprintw(row_max-1, 0, "cancelled                                 ");
+	refresh();
+	exit_check = false;
       }
     }
     
@@ -255,12 +266,13 @@ int main(int argc, char *argv[]) {
     if (exit) buffer[20] += (1 << 4);
     send (sockfd, buffer, 21, 0);
 
-    if (exit && startup_lock) exit = false;
-    if (exit == true && startup_lock == false) {
+    if (exit && startup_lock) {
+      exit = false;
+    } else if (exit == true && startup_lock == false) {
       break;
-    } else {
-      usleep(DELAY_MILLISEC * 1000);
     }
+    
+    usleep(DELAY_MILLISEC * 1000);
   }
 
   endwin();	
