@@ -5,6 +5,7 @@
 #include <iostream>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <string.h>
 
 bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller, Data &DATA) {
   bcm2835_delay (100);
@@ -29,13 +30,27 @@ bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller,
 int main (int argc, char *argv[]) {
   system("clear");
   std::cout << "Quadrupole controller side ver 0.1\n";
+  bool calibrate = false, resume = false;
+  for (int i = 1; i <= argc; i++) {
+    if (!strcmp (argv[i], "-c")) {
+      calibrate = true;
+    } else if (!strcmp (argv[i], "-r")) {
+      resume = true;
+    } else {
+      std::cout << "usage: Quadrupole [-c] [-r]\n";
+      std::cout << "\t[-c] Calibrate IMU sensors when starting up.\n";
+      std::cout << "\t[-r] Resume connection option. Ignore handshaking process when intializing the network server.\n"
+    }
+  }
+  
   std::cout << "Initializing sensors...\n";
-
   Data DATA;  
   Sensor sensor(&DATA, 50);
   if (!sensor.initialize()) return 1;
-  //  sensor.accelCalibrate();
-  //sensor.gyroCalibrate();
+  if (calibrate) {
+    sensor.accelCalibrate();
+    sensor.gyroCalibrate();
+  }
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
@@ -52,7 +67,11 @@ int main (int argc, char *argv[]) {
 
   std::cout << "Intiailzing network server...\n";
   Interface interface(&DATA);
-  if (!interface.initialize()) return 1;
+  if (resume) {
+    if (!interface.resume()) return 1;
+  } else {
+    if (!interface.initialize()) return 1;
+  }
 
   
   //setting scheduling policy of main thread

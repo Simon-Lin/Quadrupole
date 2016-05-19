@@ -65,6 +65,44 @@ bool Interface::initialize() {
   return 1;
 }
 
+bool Interface::resume() {
+  //initailze socket
+  if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    perror("cannot open socket");
+    return 0;
+  }
+
+  bzero((char*) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serv_addr.sin_port = htons(PORTNO); //portno: Fine structure constant
+
+  if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+    perror("socket binding failed");
+    return 0;
+  }
+  printf ("socket initiailization complete on port %d.", PORTNO);
+  fflush(stdout);
+  
+  //taking the first call on client to set client IP
+  socklen_t clilen = sizeof(cli_addr);
+  char tmpbuf[100] = {0};
+  if ((recvfrom(sockfd, tmpbuf, 21, 0, (struct sockaddr*)&cli_addr, &clilen)) < 0) {
+    perror("revieving data failed");
+    return 0;
+  }  
+  connect(sockfd, (struct sockaddr*)&cli_addr, clilen);
+
+  //setting socket to non-blocking
+  if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) | O_NONBLOCK)) {
+    perror("setting socket to non-blocking failed");
+    return 0;
+  }
+  
+  printf ("connection established. socket initialization complete.\n");
+  return 1;
+}
+
 void Interface::startupLock () {
   while (!DATA->power_off) {
     bcm2835_delay (100);
