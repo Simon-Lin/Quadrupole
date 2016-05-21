@@ -34,7 +34,7 @@ bool Sensor::initialize () {
   IMU.setSleepEnabled(false);
   IMU.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
   IMU.setRate(0);
-  IMU.setDLPFMode(MPU6050_DLPF_BW_42);
+  IMU.setDLPFMode(MPU6050_DLPF_BW_20);
   IMU.setDHPFMode(MPU6050_DHPF_RESET);
   IMU.setFullScaleGyroRange(MPU6050_GYRO_FS_500);
   IMU.setFullScaleAccelRange(MPU6050_ACCEL_FS_4);
@@ -57,7 +57,8 @@ bool Sensor::initialize () {
     ADC.initialize();
     ADC_connected = true;
   }
-  
+  bcm2835_delay (500);
+
   //initailize Kalamn filter
   int16_t ax, ay, az, gx, gy, gz;
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
@@ -181,9 +182,9 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
   state[0] = g_dir[0]; state[1] = g_dir[1]; state[2] = g_dir[2];
   //=========Kalman Filter=============
 
-// std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
-// std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
-// std::cout << "====================\n";
+ //std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
+ //std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
+ //std::cout << "====================\n";
   
   //set value to output references
   g_direction = g_dir;

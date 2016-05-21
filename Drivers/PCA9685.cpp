@@ -21,7 +21,6 @@ void PCA9685::initialize() {
 		LED_delay[i] = 0;
 		LED_duty_cycle[i] = 0;
 	}
-	freq = 200;
 	for (int i = 0; i < 48; i += 4) {
 		buf[i] = 0x00;
 		buf[i+1] = 0x00;

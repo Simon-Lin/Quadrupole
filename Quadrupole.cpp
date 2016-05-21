@@ -28,10 +28,8 @@ bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller,
 }
 
 int main (int argc, char *argv[]) {
-  system("clear");
-  std::cout << "Quadrupole controller side ver 0.1\n";
   bool calibrate = false, resume = false;
-  for (int i = 1; i <= argc; i++) {
+  for (int i = 1; i < argc; i++) {
     if (!strcmp (argv[i], "-c")) {
       calibrate = true;
     } else if (!strcmp (argv[i], "-r")) {
@@ -39,13 +37,16 @@ int main (int argc, char *argv[]) {
     } else {
       std::cout << "usage: Quadrupole [-c] [-r]\n";
       std::cout << "\t[-c] Calibrate IMU sensors when starting up.\n";
-      std::cout << "\t[-r] Resume connection option. Ignore handshaking process when intializing the network server.\n"
+      std::cout << "\t[-r] Resume connection option. Ignore handshaking process when intializing the network server.\n";
+      return 0;
     }
   }
+  system("clear");
+  std::cout << "Quadrupole controller side ver 0.1\n";
   
   std::cout << "Initializing sensors...\n";
-  Data DATA;  
-  Sensor sensor(&DATA, 50);
+  Data DATA;
+  Sensor sensor(&DATA, 10);
   if (!sensor.initialize()) return 1;
   if (calibrate) {
     sensor.accelCalibrate();
@@ -54,7 +55,7 @@ int main (int argc, char *argv[]) {
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
-  PARA.bal_lin = 0.005;
+  PARA.bal_lin = 0.01;
   PARA.bal_diff = 0.000;
   PARA.bal_int = 0.000;
   PARA.yaw_lin = 0.00001;

@@ -20,8 +20,8 @@ Controller::Controller(Data *DATA_ref, ControlParameters parameters) {
   PWM_freq = 200;
   PWM_period = 1000 / PWM_freq;
   // throttle range: 1100(min) - 1900(max) us
-  min_duty_cycle = 1.1 / PWM_period;
-  max_duty_cycle = 1.9 / PWM_period;
+  min_duty_cycle = 1.0 / PWM_period;
+  max_duty_cycle = 2.0 / PWM_period;
   duty_range = max_duty_cycle - min_duty_cycle;
 }
 
@@ -38,7 +38,7 @@ bool Controller::initialize() {
   
   printf ("Preparing to intialize ESCs, please turn the power of ESCs on.\n");
   ServoData power;
-  power.UR = power.UL = power.DR = power.DL = 0;
+  power.UR = power.UL = power.DR = power.DL = 0.0;
   setServo(power);
   bcm2835_delay(5000);
   printf ("ESC initialization complete.\n");
@@ -59,7 +59,7 @@ void Controller::setParameters(ControlParameters parameters) {
 
   //set boundary values to integrated results
   theta_int_bound = 0.2 / para.bal_int;
-  x_z_bound = 0.2 / para.att_int;
+  x_z_bound = 0.1 / para.att_int;
 }
 
 
@@ -141,17 +141,27 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
   theta_0 = theta;
   
   //correction vector formula: (^ stands for unit vector in x-y plane)
-  //f = - (c1 theta + c2 dtheta/dt + c3 int(dtheta dt)) ^(g_set - g_now) 
+  //f = (c1 theta + c2 dtheta/dt + c3 int(dtheta dt)) ^(g_set - g_now) 
   Eigen::Vector3f tmp = g_dir_set - g_dir_now;
   tmp[2] = 0;
   tmp.normalize();
-  Eigen::Vector3f f_corr = - (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
+  Eigen::Vector3f f_corr = (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
 
   //convert the correction vector to the power of motors
-  output.UR +=  f_corr[0] + f_corr[1];
-  output.DR +=  f_corr[0] - f_corr[1];
-  output.UL += -f_corr[0] + f_corr[1];
-  output.DL += -f_corr[0] - f_corr[1];
+  if (f_corr[0] > 0) {
+    output.UL += f_corr[0];
+    output.DL += f_corr[0];
+  } else {
+    output.UR -= f_corr[0];
+    output.DR -= f_corr[0];
+  }
+  if (f_corr[1] > 0) {
+    output.DR += f_corr[1];
+    output.DL += f_corr[1];
+  } else {
+    output.UR -= f_corr[1];
+    output.UL -= f_corr[1];
+  }
 }
 
 
