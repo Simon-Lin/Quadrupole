@@ -161,11 +161,13 @@ int main(int argc, char *argv[]) {
   float throttle = 0, yaw_set = 0;
   Vector3D g_dir_set;
   bool att_hold = false;
+  bool increment_mode = false;
   bool exit = false;	
   //inner processing
   float roll, pitch;
   bool startup_lock = false;
   bool att_hold_pressed = false;
+  bool increment_pressed = false;
   bool exit_pressed = false;
   bool exit_check = false;
 
@@ -198,7 +200,9 @@ int main(int argc, char *argv[]) {
 
     //get input
     Gamepad_processEvents();
-    throttle = 0.5 * (1 - js->axisStates[1]);
+    if (!increment_mode) {
+      throttle = 0.5 * (1 - js->axisStates[1]);
+    }
     yaw_set = js->axisStates[0];
     //max tilt angle: 30 degrees
     g_dir_set.x =  0.5 * js->axisStates[3];
@@ -225,6 +229,40 @@ int main(int argc, char *argv[]) {
     mvprintw (15, 2, "ATT_HOLD = OFF");
     }
     refresh();
+
+    //increment mode
+    if (js->buttonStates[2]) {
+      if (!increment_pressed) {
+	increment_pressed = true;
+      }
+    } else {
+      if (increment_pressed) {
+	if (!increment_mode) {
+	  throttle = 0;
+	  increment_mode = true;
+	  mvprintw (15, 18, "INCREMENT_MODE");
+	} else {
+	  increment_mode = false;
+	  mvprintw (15, 18, "              ");
+	}
+	increment_pressed = false;
+      }
+    }
+
+    //increment mode throttle
+    if (increment_mode) {
+      //      mvprintw (16, 2, "%f  %f", js->axisStates[5], js->axisStates[6]);
+      if (js->axisStates[5] == 0) {
+	if (js->axisStates[6] == -1) {
+	  throttle += 0.01;
+	  if (throttle > 1) throttle = 1;
+	}
+	if (js->axisStates[6] == 1) {
+	  throttle -= 0.01;
+	  if (throttle < 0) throttle = 0;
+	}
+      }
+    }
     
     //exit and startup
     if (js->buttonStates[9]) {
