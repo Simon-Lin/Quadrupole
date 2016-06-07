@@ -2,7 +2,7 @@
 #include "Eigen/LU"
 #include "Eigen/Geometry"
 #include <iostream>
-#include <math.h>
+#include <cmath>
 
 Sensor::Sensor(float sampling_rate) {
 //plain initializer (only used in testing) Sensor::Sensor (float sampling_rate) {
@@ -62,6 +62,10 @@ bool Sensor::initialize () {
   //initailize Kalamn filter
   int16_t ax, ay, az, gx, gy, gz;
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+  while (isnan(ax) || isnan(ay) || isnan(az) || isnan(gx) || isnan(gy) || isnan(gz)) {
+    bcm2835_delay (5);
+    IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+  }
   state << ax/LSB_accel, ay/LSB_accel, az/LSB_accel, gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro;
   cor <<
     0, 0, 0, 0, 0, 0,
@@ -126,7 +130,9 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
   float dtheta = -gyro.norm() * dt * M_PI / 180.0;
   float c = cos(dtheta);
   float s = sin(dtheta);
-  gyro.normalize();
+  if (dtheta != 0) {
+    gyro.normalize();
+  }
   ax = g_dir[0]; ay = g_dir[1]; az = g_dir[2];
   gx = gyro[0]; gy = gyro[1]; gz = gyro[2];
   float adotg = gx*ax + gy*ay + gz*az;
@@ -140,8 +146,10 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
     0, 0, 0, 0, 1, 0,
     0, 0, 0, 0, 0, 1;
   //prediction
-  Eigen::AngleAxisf rotate(dtheta, gyro);
-  g_dir = rotate * g_dir;
+  if (dtheta != 0) {
+    Eigen::AngleAxisf rotate(dtheta, gyro);
+    g_dir = rotate * g_dir;
+  }
   state_predict << g_dir[0], g_dir[1], g_dir[2], state[3], state[4], state[5];
   float error_dynamic = 5e-4 * gyro_diff;
   noise_predict <<
@@ -182,7 +190,7 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
   state[0] = g_dir[0]; state[1] = g_dir[1]; state[2] = g_dir[2];
   //=========Kalman Filter=============
 
- //std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
+ std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
  //std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
  //std::cout << "====================\n";
   

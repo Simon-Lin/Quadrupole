@@ -72,7 +72,7 @@ void Controller::control (float thrust, float yaw, float yaw_set, Eigen::Vector3
   t0 = t;
 
   balanceAlg (g_direction, g_direction_set, power);
-  yawAlg (yaw, yaw_set, power);
+//  yawAlg (yaw, yaw_set, power);
   setServo (power);  
 }
 
@@ -82,10 +82,11 @@ void Controller::control_HoldAtt (float z_speed, float yaw, float yaw_set, Eigen
   float t = bcm2835_st_read() / 1000000.0;
   dt = t - t0;
   t0 = t;
-
-  attAlg (z_speed, power);
+  
+  power.UR = power.UL = power.DR = power.DL = 0.15;
+//  attAlg (z_speed, power);
   balanceAlg (g_direction, g_direction_set, power);
-  yawAlg (yaw, yaw_set, power);
+//  yawAlg (yaw, yaw_set, power);
   setServo (power);
 }
 
