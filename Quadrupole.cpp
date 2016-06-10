@@ -55,7 +55,7 @@ int main (int argc, char *argv[]) {
 
   std::cout << "Initializing servo controller...\n";
   ControlParameters PARA;
-  PARA.bal_lin = 0.01;
+  PARA.bal_lin = -0.01;
   PARA.bal_diff = 0.000;
   PARA.bal_int = 0.000;
   PARA.yaw_lin = 0.00001;

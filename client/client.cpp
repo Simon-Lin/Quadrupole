@@ -200,8 +200,10 @@ int main(int argc, char *argv[]) {
 
     //get input
     Gamepad_processEvents();
-    if (!increment_mode) {
-      throttle = 0.5 * (1 - js->axisStates[1]);
+    if (startup_lock) {
+      if (!increment_mode) {
+	throttle = 0.5 * (1 - js->axisStates[1]);
+      }
     }
     yaw_set = js->axisStates[0];
     //max tilt angle: 30 degrees
@@ -251,7 +253,6 @@ int main(int argc, char *argv[]) {
 
     //increment mode throttle
     if (increment_mode) {
-      //      mvprintw (16, 2, "%f  %f", js->axisStates[5], js->axisStates[6]);
       if (js->axisStates[5] == 0) {
 	if (js->axisStates[6] == -1) {
 	  throttle += 0.01;

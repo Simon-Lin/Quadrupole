@@ -125,43 +125,47 @@ void Controller::yawAlg (float yaw_now, float yaw_set, ServoData &output) {
 
 void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_set, ServoData &output) {
   //calculate angle deviation form g_dir_now and g_dir_set
-  float theta = acos (g_dir_now.dot(g_dir_set));
+  Eigen::Vector3f tmp = g_dir_set - g_dir_now;
+  Eigen::Vector2f theta (asin(tmp[0]), asin(tmp[1]));
   
   //differentation and integration of theta
-  float theta_diff = (theta - theta_0) / dt;
+  theta_diff = (theta - theta_0) / dt;
   theta_int += (theta + theta_0) * dt / 2.0;
 
-  printf ("%+f===%+f===%+f===", theta, theta_diff, theta_int);
-  if (abs(theta_int) > theta_int_bound) {
+  if (abs(theta_int[0]) > theta_int_bound) {
     if (theta_int < 0) {
-      theta_int = -theta_int_bound;
+      theta_int[0] = -theta_int_bound;
     } else {
-      theta_int = theta_int_bound;
+      theta_int[0] = theta_int_bound;
+    }
+  }
+  if (abs(theta_int[1]) > theta_int_bound) {
+    if (theta_int < 0) {
+      theta_int[1] = -theta_int_bound;
+    } else {
+      theta_int[1] = theta_int_bound;
     }
   }
   theta_0 = theta;
   
-  //correction vector formula: (^ stands for unit vector in x-y plane)
-  //f = (c1 theta + c2 dtheta/dt + c3 int(dtheta dt)) ^(g_set - g_now) 
-  Eigen::Vector3f tmp = g_dir_set - g_dir_now;
-  tmp[2] = 0;
-  tmp.normalize();
-  Eigen::Vector3f f_corr = (para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int) * tmp;
+  //correction vector formula:
+  //f_i = (c1 theta_i + c2 dtheta_i/dt + c3 int(dtheta_i dt)
+  Eigen::Vector2f f_corr = para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int;
 
   //convert the correction vector to the power of motors
   if (f_corr[0] > 0) {
-    output.UL += f_corr[0];
-    output.DL += f_corr[0];
+    output.UR += f_corr[0];
+    output.DR += f_corr[0];
   } else {
-    output.UR -= f_corr[0];
-    output.DR -= f_corr[0];
+    output.UL -= f_corr[0];
+    output.DL -= f_corr[0];
   }
   if (f_corr[1] > 0) {
-    output.DR += f_corr[1];
-    output.DL += f_corr[1];
+    output.UR += f_corr[1];
+    output.UL += f_corr[1];
   } else {
-    output.UR -= f_corr[1];
-    output.UL -= f_corr[1];
+    output.DR -= f_corr[1];
+    output.DL -= f_corr[1];
   }
 }
 
