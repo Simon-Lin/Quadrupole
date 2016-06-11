@@ -133,14 +133,14 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
   theta_int += (theta + theta_0) * dt / 2.0;
 
   if (abs(theta_int[0]) > theta_int_bound) {
-    if (theta_int < 0) {
+    if (theta_int[0] < 0) {
       theta_int[0] = -theta_int_bound;
     } else {
       theta_int[0] = theta_int_bound;
     }
   }
   if (abs(theta_int[1]) > theta_int_bound) {
-    if (theta_int < 0) {
+    if (theta_int[1] < 0) {
       theta_int[1] = -theta_int_bound;
     } else {
       theta_int[1] = theta_int_bound;
