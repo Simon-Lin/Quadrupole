@@ -15,7 +15,7 @@ struct Data {
   //control signal
   Eigen::Vector3f g_direction_set;
   float throttle, yaw_set;
-  bool att_hold, power_off;
+  bool startup_lock, att_hold, power_off;
 
   //process control
   bool terminate;

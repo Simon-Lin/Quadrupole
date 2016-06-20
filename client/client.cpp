@@ -273,10 +273,9 @@ int main(int argc, char *argv[]) {
     } else {
       if (exit_pressed) {
 	if (!startup_lock) {
-	  exit = startup_lock = true;
+	  startup_lock = true;
 	  mvprintw(row_max-1, 0, "                                          ");
 	} else if (exit_check) {
-	  startup_lock = false;
 	  exit = true;
 	} else {
 	  exit_check = true;
@@ -301,13 +300,12 @@ int main(int argc, char *argv[]) {
     serialize (yaw_set, buffer+4);
     serialize (g_dir_set, buffer+8);
     buffer[20] = 0;
-    if (att_hold) buffer[20] += 1;
-    if (exit) buffer[20] += (1 << 4);
+    if (startup_lock) buffer[20] += (1 << 4);
+    if (att_hold) buffer[20] += (1 << 3);
+    if (exit) buffer[20] += 1;
     send (sockfd, buffer, 21, 0);
 
-    if (exit && startup_lock) {
-      exit = false;
-    } else if (exit == true && startup_lock == false) {
+    if (exit) {
       break;
     }
     
