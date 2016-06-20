@@ -300,8 +300,8 @@ int main(int argc, char *argv[]) {
     serialize (yaw_set, buffer+4);
     serialize (g_dir_set, buffer+8);
     buffer[20] = 0;
-    if (startup_lock) buffer[20] += (1 << 4);
-    if (att_hold) buffer[20] += (1 << 3);
+    if (startup_lock) buffer[20] += (1 << 3);
+    if (att_hold) buffer[20] += (1 << 2);
     if (exit) buffer[20] += 1;
     send (sockfd, buffer, 21, 0);
 
