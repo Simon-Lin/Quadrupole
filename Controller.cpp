@@ -30,7 +30,7 @@ Controller::~Controller() {
 }
 
 bool Controller::initialize() {
-  theta_int = 0;
+  theta_int << 0, 0;
   x_z = 0;
   t0 = bcm2835_st_read() / 1000000.0;
   servo.set_PWM_Frequency(PWM_freq);
@@ -151,28 +151,29 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
   //correction vector formula:
   //f_i = (c1 theta_i + c2 dtheta_i/dt + c3 int(dtheta_i dt)
   Eigen::Vector2f f_corr = para.bal_lin*theta + para.bal_diff*theta_diff + para.bal_int*theta_int;
-
+  //printf ("f_x: % f, f_y: % f\n", f_corr[0], f_corr[1]);
+  
   //convert the correction vector to the power of motors
   if (f_corr[0] > 0) {
-    output.UR += f_corr[0];
-    output.DR += f_corr[0];
+    output.UL += f_corr[0];
+    output.DL += f_corr[0];
   } else {
-    output.UL -= f_corr[0];
-    output.DL -= f_corr[0];
+    output.UR -= f_corr[0];
+    output.DR -= f_corr[0];
   }
   if (f_corr[1] > 0) {
-    output.UR += f_corr[1];
-    output.UL += f_corr[1];
+    output.DR += f_corr[1];
+    output.DL += f_corr[1];
   } else {
-    output.DR -= f_corr[1];
-    output.DL -= f_corr[1];
+    output.UR -= f_corr[1];
+    output.UL -= f_corr[1];
   }
 }
 
 
 void Controller::setServo (ServoData input) {
-  printf ("% f  % f  % f  % f\n", input.UR, input.UL, input.DL, input.DR);
-  fflush(stdout);
+  //  printf ("UR% f  UL% f  DL% f  DR% f\n", input.UR, input.UL, input.DL, input.DR);
+  //  fflush(stdout);
   pthread_spin_lock (&(DATA->I2C_ACCESS));
   servo.setPWM (0, min_duty_cycle + input.UR * duty_range);
   servo.setPWM (1, min_duty_cycle + input.UL * duty_range);

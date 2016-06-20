@@ -13,7 +13,7 @@ bool controlcycle (Sensor &sensor, Interface &interface, Controller &controller,
   interface.update();
     
   if (DATA.att_hold) {
-    std::cout << "ATTHOLD   ";
+    std::cout << "ATTHOLD   \n" << std::flush;
     controller.control_HoldAtt (DATA.speed[2], DATA.angular_speed[2], DATA.yaw_set, DATA.g_direction, DATA.g_direction_set);
   } else {
     controller.control (DATA.throttle, DATA.angular_speed[2], DATA.yaw_set, DATA.g_direction, DATA.g_direction_set);  

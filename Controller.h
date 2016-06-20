@@ -6,6 +6,15 @@
 #include "Data.h"
 #include <pthread.h>
 
+/* 
+MOTOR CONFIGURATION
+=pin  pos  rot=
+  0   UR   CCW          
+  1   UL   CW
+  2   DL   CCW
+  3   DR   CW
+*/
+
 struct ServoData {
   float UR, UL, DL, DR;
 };
