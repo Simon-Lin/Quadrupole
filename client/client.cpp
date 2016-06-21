@@ -41,13 +41,24 @@ Vector3D decode_v (char *in);
 
 
 int main(int argc, char *argv[]) {
-  system("clear");
-  if (argc == 1 || (argc == 3 && strcmp(argv[2], "-r"))) {
-  	printf("usage: client [serverside IP] [-r]\n");
-  	return 1;
+  
+  bool stat = false, resume = false;
+  if (argc == 1) {
+    printf("usage: client [serverside IP] [-r] [-s]\n");
+    return 1; 
   }
+  for (int i = 2; i < argc; i++) {
+    if (!strcmp (argv[i], "-s")) {
+      stat = true;
+    } else if (!strcmp (argv[i], "-r")) {
+      resume = true;
+    } else {
+      printf ("usage: client [serverside IP] [-r] [-c]\n");
+      return 0;
+    }
+  }  
+  system("clear");
   printf("Quadrupole client side ver 0.1\n");
-
 
   //check for joystick
   Gamepad_init();
@@ -69,8 +80,8 @@ int main(int argc, char *argv[]) {
   fflush(stdout);
 
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-      perror("cannot open socket");
-      return 1;
+    perror("cannot open socket");
+    return 1;
   }
   bzero((char*) &client_addr, sizeof(client_addr));
   client_addr.sin_family = AF_INET;
@@ -98,7 +109,7 @@ int main(int argc, char *argv[]) {
   }
 
   //if in resume connection mode then skip handshaking
-  if (argc == 2) {
+  if (!resume) {
     
     //send ACK signal to server
     char ackbuf[] =  "QUAD";
@@ -138,6 +149,15 @@ int main(int argc, char *argv[]) {
     }
     printf ("connection established, socket initialization complete.\n");
     usleep(500000);
+  }
+
+  //record statistics option
+  FILE *fp;
+  if (stat) {
+    if ((fp = fopen("stat.txt", "w")) < 0) {
+      printf ("error creating stat.txt\n");
+    }
+    fprintf (fp, "roll    \tpitch   \taccel_x \taccel_y \taccel_z \tomega_x \tomega_y \tomega_z\n");
   }
   
   //ncurses initialization
@@ -196,6 +216,11 @@ int main(int argc, char *argv[]) {
       mvprintw (7, 2, "acceleration: (% f, % f, % f)", accel.x, accel.y, accel.z);
       mvprintw (9, 2, "height: % f", height);
       mvprintw (10, 2, "tempreature: % f   pressure: % f", temp, pressure);
+
+      //record statistics option
+      if (stat) {
+	fprintf (fp, "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", roll, pitch, accel.x, accel.y, accel.z, omega.x, omega.y, omega.z);
+      }
     }
 
     //get input
@@ -310,6 +335,10 @@ int main(int argc, char *argv[]) {
     }
     
     usleep(DELAY_MILLISEC * 1000);
+  }
+
+  if (stat) {
+    fclose (fp);
   }
 
   endwin();	
