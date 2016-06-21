@@ -124,6 +124,25 @@ void Interface::update () {
   if (send (sockfd, buffer, 60, 0) < 0) {
     perror("ERROR sending data to client");
       DATA->g_direction_set << 0, 0, -1;
+  }
+  
+  //recieve from client (total length = 2*4 + 1*12 + 1 = 21 bytes)
+  bool loss = true;
+  while (recv (sockfd, buffer, 21, 0) > 0) { //clear buffer
+    loss = false;
+  }
+  if (loss) {
+    if (errno != EAGAIN) {
+      perror("ERROR recieving controlling packet");
+    }
+    lost_pack++;
+    printf("packet(s) lost: %d\n", lost_pack);
+    //enter hovering mode if lost too many packets
+    if (lost_pack == MAX_LOSS_PACKET) {
+      printf("lost packet number exceeds acceptable value. entering hovering mode.\n");
+      DATA->att_hold = true;
+      DATA->yaw_set = 0;
+      DATA->g_direction_set << 0, 0, -1;
     }
   } else {
     lost_pack = 0;
@@ -131,8 +150,8 @@ void Interface::update () {
     DATA->throttle = decode_f (buffer);
     DATA->yaw_set = decode_f (buffer+4);
     DATA->g_direction_set = decode_v (buffer+8);
-    DATA->startup_lock = *(buffer + 20) & (1 << 4);
-    DATA->att_hold = *(buffer + 20) & (1 << 3);
+    DATA->startup_lock = *(buffer + 20) & (1 << 3);
+    DATA->att_hold = *(buffer + 20) & (1 << 2);
     DATA->power_off = *(buffer + 20) & 1;
   }
 }

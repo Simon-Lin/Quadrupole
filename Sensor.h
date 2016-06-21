@@ -21,7 +21,7 @@ class Sensor {
   static void* start(void *context);
   
   //Obtain instaneous and integrated results
-  void getMotionData (Eigen::Vector3f &angular_direction, Eigen::Vector3f &g_direction);
+  void getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angular_direction, Eigen::Vector3f &g_direction);
   
   //Obtain instaneous sensor data
   void getAccel (Eigen::Vector3f &acceleration);
@@ -43,7 +43,7 @@ class Sensor {
 
   //pthread start wraps to here
   void* _start();
-  
+ 
   //in miliseconds
   float sampling_time;
 
@@ -55,6 +55,7 @@ class Sensor {
   float gyro_diff;
   float time;
   float time_0;
+  float dt;
 
   //Kalman filter data
   //state vector (gdir_x, gdir_y, gdir_z, gz, gy, gz)

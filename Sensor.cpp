@@ -63,7 +63,7 @@ bool Sensor::initialize () {
   int16_t ax, ay, az, gx, gy, gz;
   IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
   while (isnan(ax) || isnan(ay) || isnan(az) || isnan(gx) || isnan(gy) || isnan(gz)) {
-    bcm2835_delay (5);
+    bcm2835_delay (10);
     IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
   }
   state << ax/LSB_accel, ay/LSB_accel, az/LSB_accel, gx/LSB_gyro, gy/LSB_gyro, gz/LSB_gyro;
@@ -90,8 +90,13 @@ void* Sensor::start(void *context) {
 
 void* Sensor::_start() {
   int cycle = 0;
+  time_0 = bcm2835_st_read() / 1000.0;
+  
   while (!(DATA->terminate)) {
-    getMotionData (DATA->angular_speed, DATA->g_direction);
+    time = bcm2835_st_read() / 1000.0;
+    dt = (time - time_0) / 1000.0;
+    time_0 = time;
+    getMotionData (DATA->acceleration, DATA->angular_speed, DATA->g_direction);
 
     //these data are updated per ten sensor cycle
     if (cycle >= 10) {
@@ -118,12 +123,8 @@ void* Sensor::_start() {
 }
 
 
-void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_direction) {
-  //obtain data from motion sensor
-  float ax, ay, az, gx, gy, gz;
-  time = bcm2835_st_read() / 1000.0;
-  float dt = (time - time_0) / 1000.0;
-  
+void Sensor::getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_direction) {
+
   //==========Kalman Filter============
   Eigen::Vector3f g_dir(state[0], state[1], state[2]);
   Eigen::Vector3f gyro(state[3], state[4], state[5]);
@@ -133,6 +134,7 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
   if (dtheta != 0) {
     gyro.normalize();
   }
+  float ax, ay, az, gx, gy, gz;
   ax = g_dir[0]; ay = g_dir[1]; az = g_dir[2];
   gx = gyro[0]; gy = gyro[1]; gz = gyro[2];
   float adotg = gx*ax + gy*ay + gz*az;
@@ -151,34 +153,37 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
     g_dir = rotate * g_dir;
   }
   state_predict << g_dir[0], g_dir[1], g_dir[2], state[3], state[4], state[5];
-  float error_dynamic = 5e-4 * gyro_diff;
   noise_predict <<
-    3e-2+error_dynamic, 0, 0, 0, 0, 0,
-    0, 3e-2+error_dynamic, 0, 0, 0, 0,
-    0, 0, 3e-2+error_dynamic, 0, 0, 0,
-    0, 0, 0, 3+gyro_diff, 0, 0,
-    0, 0, 0, 0, 3+gyro_diff, 0,
-    0, 0, 0, 0, 0, 3+gyro_diff;
+    0.03, 0, 0, 0, 0, 0,
+    0, 0.03, 0, 0, 0, 0,
+    0, 0, 0.03, 0, 0, 0,
+    0, 0, 0, 10, 0, 0,
+    0, 0, 0, 0, 10, 0,
+    0, 0, 0, 0, 0, 10;
   cor_predict = F * cor * F.transpose() + noise_predict;
   
   //observation
   int16_t ax_r, ay_r, az_r, gx_r, gy_r, gz_r;
   pthread_spin_lock (&(DATA->I2C_ACCESS));
   IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
+  while (isnan(ax) || isnan(ay) || isnan(az) || isnan(gx) || isnan(gy) || isnan(gz)) {
+    bcm2835_delay (10);
+    IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
+  }
   pthread_spin_unlock (&(DATA->I2C_ACCESS));
   g_dir << ax_r/LSB_accel, ay_r/LSB_accel, az_r/LSB_accel;
   gyro  << gx_r/LSB_gyro, gy_r/LSB_gyro, gz_r/LSB_gyro;
   g_dir.normalize();
   state_observ << g_dir[0], g_dir[1], g_dir[2], gyro[0], gyro[1], gyro[2];
   Eigen::Vector3f gyro_0 (state[3], state[4], state[5]);
-  error_dynamic = 5e-4 * ((gyro_0 - gyro).squaredNorm());
+  float error_dynamic = 5e-3 * ((gyro_0 - gyro).squaredNorm());
   noise_observ <<
-    3e-3+error_dynamic, 0, 0, 0, 0, 0,
-    0, 3e-3+error_dynamic, 0, 0, 0, 0,
-    0, 0, 3e-3+error_dynamic, 0, 0, 0,
-    0, 0, 0, 3, 0, 0,
-    0, 0, 0, 0, 3, 0,
-    0, 0, 0, 0, 0, 3;
+    0.02+error_dynamic, 0, 0, 0, 0, 0,
+    0, 0.02+error_dynamic, 0, 0, 0, 0,
+    0, 0, 0.02+error_dynamic, 0, 0, 0,
+    0, 0, 0, 5, 0, 0,
+    0, 0, 0, 0, 5, 0,
+    0, 0, 0, 0, 0, 5;
   
   //update
   Eigen::Matrix<float, 6, 6> K;
@@ -190,11 +195,12 @@ void Sensor::getMotionData (Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_d
   state[0] = g_dir[0]; state[1] = g_dir[1]; state[2] = g_dir[2];
   //=========Kalman Filter=============
 
- std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
- //std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
- //std::cout << "====================\n";
+  //  std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
+  //  std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
+  //  std::cout << "====================\n";
   
   //set value to output references
+  acceleration << state_observ[0], state_observ[1], state_observ[2];
   g_direction = g_dir;
   angular_speed = gyro;
 }
