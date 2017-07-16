@@ -71,7 +71,7 @@ void Controller::control (float thrust, float yaw, float yaw_set, Eigen::Vector3
   dt = t - t0;
   t0 = t;
 
-  balanceAlg (g_direction, g_direction_set, power);
+  //  balanceAlg (g_direction, g_direction_set, power);
 //  yawAlg (yaw, yaw_set, power);
   setServo (power);  
 }
@@ -173,7 +173,7 @@ void Controller::balanceAlg (Eigen::Vector3f g_dir_now, Eigen::Vector3f g_dir_se
 
 void Controller::setServo (ServoData input) {
   //  printf ("UR% f  UL% f  DL% f  DR% f\n", input.UR, input.UL, input.DL, input.DR);
-  //  fflush(stdout);
+  //fflush(stdout);
   pthread_spin_lock (&(DATA->I2C_ACCESS));
   servo.setPWM (0, min_duty_cycle + input.UR * duty_range);
   servo.setPWM (1, min_duty_cycle + input.UL * duty_range);

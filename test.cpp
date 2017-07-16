@@ -17,10 +17,11 @@ int main() {
 
   Sensor sensor(&DATA, 10);
   sensor.initialize();
-  //  sensor.gyroCalibrate();
-  //  sensor.accelCalibrate();
-  //  sensor.IMU_GetOffsets();
-  //  return 0;
+  sensor.gyroCalibrate();
+  sensor.accelCalibrate();
+  sensor.IMU_GetOffsets();
+  //  sensor.IMU_SelfTest();
+  return 0;
   bcm2835_delay(500);
   Controller controller (&DATA);
   controller.initialize();

@@ -22,6 +22,7 @@ class Sensor {
   
   //Obtain instaneous and integrated results
   void getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angular_direction, Eigen::Vector3f &g_direction);
+  void getMotionData (float &ax, float &ay, float &az, float &wx, float &wy, float &wz, float &gx, float& gy, float &gz); //only for python illustration
   
   //Obtain instaneous sensor data
   void getAccel (Eigen::Vector3f &acceleration);

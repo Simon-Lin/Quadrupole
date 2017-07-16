@@ -75,11 +75,7 @@ bool Sensor::initialize () {
     0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0;
 
-  //initialize sensor data
-  DATA->acceleration << 0, 0, 0;
-  DATA->temperature = 0;
-  DATA->altitute  = 0;
-  DATA->batt_voltage = 0;
+  std::cout << "initialization complete.\n";
   return 1;
 }
 
@@ -89,6 +85,12 @@ void* Sensor::start(void *context) {
 }
 
 void* Sensor::_start() {
+  //initialize sensor data
+  DATA->acceleration << 0, 0, 0;
+  DATA->temperature = 0;
+  DATA->altitute  = 0;
+  DATA->batt_voltage = 0;
+
   int cycle = 0;
   time_0 = bcm2835_st_read() / 1000.0;
   
@@ -122,7 +124,6 @@ void* Sensor::_start() {
   pthread_exit(NULL);
 }
 
-
 void Sensor::getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angular_speed, Eigen::Vector3f &g_direction) {
 
   //==========Kalman Filter============
@@ -144,46 +145,46 @@ void Sensor::getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angu
     c+gx*gx*(1-c), gx*gy*(1-c)-gz*s, gx*gz*(1-c)+gy*s, (1-c)*(adotg+gx*ax), (1-c)*ay*gx+az*s, (1-c)*az*gx-ay*s,
     gx*gy*(1-c)+gz*s, c+gy*gy*(1-c), gy*gz*(1-c)-gx*s, (1-c)*ax*gy-az*s, (1-c)*(adotg+gy*ay), (1-c)*az*gy+ax*s,
     gz*gx*(1-c)-gy*s, gz*gy*(1-c)+gx*s, c+gz*gz*(1-c), (1-c)*ax*gz+ay*s, (1-c)*ay*gz-ax*s, (1-c)*(adotg+az*gz),
-    0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 1, 0,
+    0, 0, 0, 0.5, 0, 0,
+    0, 0, 0, 0, 0.5, 0,
     0, 0, 0, 0, 0, 1;
   //prediction
   if (dtheta != 0) {
     Eigen::AngleAxisf rotate(dtheta, gyro);
     g_dir = rotate * g_dir;
   }
-  state_predict << g_dir[0], g_dir[1], g_dir[2], state[3], state[4], state[5];
+  state_predict << g_dir[0], g_dir[1], g_dir[2], 0.5*state[3], 0.5*state[4], state[5];
   noise_predict <<
-    0.03, 0, 0, 0, 0, 0,
-    0, 0.03, 0, 0, 0, 0,
-    0, 0, 0.03, 0, 0, 0,
-    0, 0, 0, 10, 0, 0,
-    0, 0, 0, 0, 10, 0,
-    0, 0, 0, 0, 0, 10;
+    0.01, 0, 0, 0, 0, 0,
+    0, 0.01, 0, 0, 0, 0,
+    0, 0, 0.01, 0, 0, 0,
+    0, 0, 0, 32, 0, 0,
+    0, 0, 0, 0, 32, 0,
+    0, 0, 0, 0, 0, 32;
   cor_predict = F * cor * F.transpose() + noise_predict;
   
   //observation
   int16_t ax_r, ay_r, az_r, gx_r, gy_r, gz_r;
-  pthread_spin_lock (&(DATA->I2C_ACCESS));
+  if (DATA) pthread_spin_lock (&(DATA->I2C_ACCESS));
   IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
   while (isnan(ax) || isnan(ay) || isnan(az) || isnan(gx) || isnan(gy) || isnan(gz)) {
     bcm2835_delay (10);
     IMU.getMotion6 (&ax_r, &ay_r, &az_r, &gx_r, &gy_r, &gz_r);
   }
-  pthread_spin_unlock (&(DATA->I2C_ACCESS));
+  if (DATA) pthread_spin_unlock (&(DATA->I2C_ACCESS));
   g_dir << ax_r/LSB_accel, ay_r/LSB_accel, az_r/LSB_accel;
   gyro  << gx_r/LSB_gyro, gy_r/LSB_gyro, gz_r/LSB_gyro;
   g_dir.normalize();
   state_observ << g_dir[0], g_dir[1], g_dir[2], gyro[0], gyro[1], gyro[2];
   Eigen::Vector3f gyro_0 (state[3], state[4], state[5]);
-  float error_dynamic = 5e-3 * ((gyro_0 - gyro).squaredNorm());
+  float error_dynamic = 5e-2 * ((gyro_0 - gyro).squaredNorm());
   noise_observ <<
-    0.02+error_dynamic, 0, 0, 0, 0, 0,
-    0, 0.02+error_dynamic, 0, 0, 0, 0,
-    0, 0, 0.02+error_dynamic, 0, 0, 0,
-    0, 0, 0, 5, 0, 0,
-    0, 0, 0, 0, 5, 0,
-    0, 0, 0, 0, 0, 5;
+    0.05+error_dynamic, 0, 0, 0, 0, 0,
+    0, 0.05+error_dynamic, 0, 0, 0, 0,
+    0, 0, 0.01+error_dynamic, 0, 0, 0,
+    0, 0, 0, 16, 0, 0,
+    0, 0, 0, 0, 16, 0,
+    0, 0, 0, 0, 0, 16;
   
   //update
   Eigen::Matrix<float, 6, 6> K;
@@ -197,12 +198,20 @@ void Sensor::getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angu
 
   //  std::cout << "predict\n" << state_predict << "\nobserve\n" << state_observ << "\ncombined\n" << state << "\n";
   //  std::cout << "cor_predict\n" << cor_predict << "\nnoise_observed\n" << noise_observ << "\nK\n" << K << "\ncor_combined\n" << cor << "\n";
-  //  std::cout << "====================\n";
+  //  std::cout << "====================\n" << std::flush;
   
   //set value to output references
   acceleration << state_observ[0], state_observ[1], state_observ[2];
   g_direction = g_dir;
   angular_speed = gyro;
+}
+
+void Sensor::getMotionData(float &ax, float &ay, float &az, float &wx, float &wy, float &wz, float &gx, float &gy, float &gz) {
+  Eigen::Vector3f a, w, g;
+  this->getMotionData(a, w, g);
+  ax = a(0); ay = a(1); az = a(2);
+  wx = w(0); wy = w(1); wz = w(2);
+  gx = g(0); gy = g(1); gz = g(2);
 }
 
 float Sensor::getPressure() {
@@ -241,7 +250,8 @@ void Sensor::accelCalibrate() {
   IMU.setZAccelOffset((int16_t)accel_off[2]);
   bcm2835_delay(100);
 
-  Eigen::Vector3f accel_cal_0, accel_cal_1;
+  Eigen::Vector3f accel_cal_0 (0, 0, 0);
+  Eigen::Vector3f accel_cal_1 (0, 0, 0);
   Eigen::Vector3f accel_fix (512, 512, 512);
   
   //obtain initial offset value
@@ -293,7 +303,8 @@ void Sensor::gyroCalibrate() {
   IMU.setZGyroOffset((int16_t)gyro_off[2]);
   bcm2835_delay(100);
 
-  Eigen::Vector3f gyro_cal_0, gyro_cal_1;
+  Eigen::Vector3f gyro_cal_0(0, 0, 0);
+  Eigen::Vector3f gyro_cal_1(0, 0, 0);
   Eigen::Vector3f gyro_fix(256, 256, 256);
   
   //obtain initial offset value
@@ -374,7 +385,7 @@ void Sensor::IMU_SelfTest () {
   float az_FT = FT==0 ? 0 : 4096*0.34*pow(0.92/0.34, (FT-1)/30.0);
 
   //obtain Self Test Values;
-  Eigen::Vector3f gyro_unenabled, gyro_enabled, accel_unenabled, accel_enabled;
+  Eigen::Vector3f gyro_unenabled(0, 0, 0), gyro_enabled(0, 0, 0), accel_unenabled(0, 0, 0), accel_enabled(0, 0, 0);
   int16_t x, y, z;
   std::cout << "." << std::flush;
   
