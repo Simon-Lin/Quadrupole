@@ -206,12 +206,16 @@ void Sensor::getMotionData (Eigen::Vector3f &acceleration, Eigen::Vector3f &angu
   angular_speed = gyro;
 }
 
-void Sensor::getMotionData(float &ax, float &ay, float &az, float &wx, float &wy, float &wz, float &gx, float &gy, float &gz) {
+//print motion data on STDOUT
+//to be used as a pipe
+void Sensor::getMotionData_PIPE() {
   Eigen::Vector3f a, w, g;
   this->getMotionData(a, w, g);
-  ax = a(0); ay = a(1); az = a(2);
-  wx = w(0); wy = w(1); wz = w(2);
-  gx = g(0); gy = g(1); gz = g(2);
+  std::cout << "PIPEDATA:" << std::endl
+	    << g(0) << std::endl << g(1) << std::endl << g(2) << std::endl
+	    << w(0) << std::endl << w(1) << std::endl << w(2) << std::endl
+	    << a(0) << std::endl << a(1) << std::endl << a(2) << std::endl
+	    << std::flush;
 }
 
 float Sensor::getPressure() {
